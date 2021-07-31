@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.emos.wx.db.dao.TbRoleDao">
+
+    <select id="searchRoleOwnPermission" resultType="HashMap" parameterType="int">
+        select
+        p.id,
+        m.module_name as moduleName,
+        a.action_name as actionName,
+        if(r.id is not null,true,false) as selected
+        from tb_permission p
+        join tb_module m on p.module_id=m.id
+        join tb_action a on p.action_id=a.id
+        LEFT JOIN tb_role r ON JSON_CONTAINS ( r.permissions, CAST( p.id AS CHAR ) ) AND
+        r.id=#{id}
+        ORDER BY p.module_id,p.id
+    </select>
+
+    <insert id="insertRole" parameterType="TbRole">
+        insert into tb_role
+        set role_name=#{roleName}, permissions=#{permissions}
+    </insert>
+    <update id="updateRolePermissions" parameterType="TbRole">
+        update tb_role
+        set permissions = #{permissions}
+        where id= #{id}
+    </update>
+</mapper>

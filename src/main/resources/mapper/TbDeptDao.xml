@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.emos.wx.db.dao.TbDeptDao">
+    <select id="searchDeptMembers" parameterType="String" resultType="HashMap">
+        select
+        d.id,
+        d.dept_name as deptName,
+        COUNT(u.id) as count
+        from tb_dept d left join tb_user u on u.dept_id=d.id and u.status=1
+        <if test="keyword!=null">
+            where u.name like '%${keyword}'
+        </if>
+        group by d.id
+
+    </select>
+</mapper>

@@ -1,0 +1,475 @@
+2.12:
+
+    1 jwt
+        JWT（Json Web Token）, 是为了在网络应用环境间传递声明而执行的一种基于JSON的开放标准。
+        JWT一般被用来在身份提供者和服务提供者间传递被认证的用户身份信息，以便于从资源服务器获取资源，
+        也可以增加一些额外的其它业务逻辑所必须的声明信息，该token也可直接被用于认证，也可被加密。
+        可以生成令牌token
+    2 swagger -> 一种restful 搭建 restful  第一步在swaggerConfig
+    3 抵御即跨站脚本 Xss http://140.143.132.225:8000/project-1/doc-19/
+    4 验证库
+    5 Shiro 认证 授权
+        shiro 框架的认证需要用到认证对象 将token封装成认证对象
+        客户端提交的Token不能直接交给Shiro框架，需要先封装成AuthenticationToken类型的对象，
+        所以我们我们需要先创建AuthenticationToken的实现类 见 OAuth2Token
+        http://140.143.132.225:8000/project-1/doc-22/
+
+        token -> OAuth2Token implement  AuthenticationToken
+        OAuth2Realm类 继承 AuthorizingRealm类， 是shiro框架执行 认证 与 授权 要用的东西
+        AuthorizingRealm 里面有认证与授权的方法
+
+    6 刷新令牌(token) ： 令牌一旦生成就保存在客户端 即使一直登录系统 也不回生成令牌
+                        令牌到期用户必须重新登陆 令牌需要自动续期
+
+                       双令牌机制和缓存令牌机制：
+                       双令牌机制设置长短日期的令牌 短日期令牌时效就用长令牌的时效
+                                   缓存令牌机制利用redis 缓存的令牌过期时间是客户端令牌的一倍
+
+    包括ThreadLocalToken类
+       创建过滤器的OAuth2Filter
+
+    创建ShiroConfig 把 Filter和Realm 添加到Shiro框架
+     创建四个对象返回给springboot:
+           SecurityManager 用于封装Realm对象
+           ShiroFilterFactoryBean 用于封装filter对象 设置filter拦截路径
+           LifeCycleBeanPostProcessor 管理Shiro对象生命周期
+           AuthorizationAttributeSourceAdvisor Aop切面类 Web方法执行前 验证权限
+
+
+     返回四个对象的方式是加注解？？？？创建配置类 创建四个对象 返回给springboot
+     详见 http://140.143.132.225:8000/project-1/doc-27/
+
+     创建AOP切面类 把更新的令牌返回给客户端 见TokenAspect类
+
+     精简返回给客户端的异常：
+        1 @ControllerAdvice 可以全局捕获SpringMVC异常
+
+        2 判断异常类型：
+            2-1 后端数据验证异常（比如格式不对） 精简异常内容
+            2-2 未授权异常 ==> 不具有权限
+            2-3 EmosException => 精简异常内容
+            2-4 普通异常 "后端项目执行异常"
+
+
+2.13:
+
+    开发微信小程序: uni-app
+
+
+2.15:
+    1 获取微信账号 OpenId字符串
+    2 完成注册功能
+        2-1 超级管理员 验证用户表是否存在超级管理员 检查好用户表的root字段
+    3 用户记录和微信账号绑定
+        3-1 保存用户信息 ==> insert 语句
+        3-2 查询员工记录ID ==> select 语句
+    4 超级管理员的业务层代码
+
+    5 RABC 权限模型：对系统操作的各种权限不是直接授予具体的用户，
+    而是在用户集合与权限集合之间建立一个角色集合。每一种角色对应一组相应的权限。
+    一旦用户被分配了适当的角色后，该用户就拥有此角色的所有操作权限。
+
+        http://140.143.132.225:8000/project-1/doc-40/
+
+2.16:
+
+    1 注册页面web层 前端后端都有(主要前端)
+    2 登录功能 http://140.143.132.225:8000/project-1/doc-44/
+    3 后端运行细节：http://140.143.132.225:8000/project-1/doc-49/
+        XssFilter --> OAuth2Filter --> Controller --> TokenAspect
+
+        XssFilter.doFilter -> OAuth2Filter.doFilterInternal -> TokenAspect.around
+
+    4 研究上传到GitHub
+
+2.17：
+
+    1 前端任务： 创建小程序Tab导航栏
+    2 人脸签到： 前后端
+    3 缓存系统常量数据 说白了就是从数据库中提取数据
+        创建SysConfigDao 类 selectAllParm 的sql方法 提取param_key, param_value
+        然后注入到systemConstants类中 在执行初始化类的init()方法
+    4 检查当天是否可以签到
+        4-1判断原则
+            4-1-1 判断日期 tb_workday tb_holiday 但是这两张表不是把所有的工作日和休息日都记录下来，只是记录比特殊的工作日或者休息日。
+            比如说今年的中秋节赶上了礼拜四，于是就把周五和周六设置成休息日，跟中秋节连成三连休，然后周日正常上班。
+            这种特殊情况我们就要记录下来。在tb_workday记录周日是工作日，在tb_holidays表中记录周五那天是休息日。
+            这样Emos系统在中秋三连休期间不会执行考勤签到。 tb_workday --> 工作日 tb_holiday --> 节假日
+            4-1-2 判断时间
+        封装持久层
+            创建三个sql语句
+                判断当前日期是不是节假日，是的话选择一个id
+                判断当前日期是不是工作日，是的话选择一个id
+                选择userId在当前日期下的且创建时间为start和end之间的id
+        业务层
+            调用持久层
+            根据时间判断是否可以考勤
+        web层
+            正常情况下会被shiro拦截
+
+2.18:
+
+    注意： userId == tb_user里面的id
+          openId = getOpenId(String code)；
+          code 是前端临时得到的登陆凭证
+
+    实现签到的shiro认证、授权
+        认证
+            shiro会默认放行一些path，但这个不是放行的web方法
+            认证对象内容不能为空
+            SimpleAuthenticationInfo 需要三个参数： 1 用户信息；  2 token   3 Realm类名字
+
+            回顾: 小程序 --ajax--> XssFilter --> OAth2Filter(放行或不放行)
+                --> OAth2Realm(授权方法)?? --> web方法
+                http://140.143.132.225:8000/project-1/doc-58/ :     现在Controller中的validCanCheckIn()方法，******，那么请求才会被发送到Web方法来执行。
+
+            认证方法在OAuth2Realm.java文件 修改doGetAuthenticationInfo() 方法
+
+        授权：
+            和jwt没啥关系 shiro每次验证权限之前，都要执行授权方法，把用户具有的权限封装成
+            权限对象，然后放行请求。
+            web方法加@RequiresPermissions注解，提取权限。
+
+2.19
+
+    1 开通腾讯位置坐标
+    2 把定位坐标转换为真实地址：
+
+        2-1 前端： 签到
+
+2.22
+
+    1 实现人脸签到：
+        TbFaceModel || TbCheckIn
+        包括持久层和业务层
+
+        /**        后端验证库   创建Form类  类声明要添加 @ApiModel 用在返回对象类上
+                validation库在做后端验证的时候，要求必须用封装类（Form类）来保存客户端提交的数据，
+                然后在封装类中，我们可以定义验证的规则，validation会执行这些规则，帮我们验证客户端提交的数据。*/
+
+        业务层：
+            先判断签到用户是否存在人脸模型
+            用签到照片和数据库人脸模型，识别签到人
+
+            查询疫情风险等级：
+                jsoup解析HTML数据
+
+            高风险地区发出告警邮件:
+                导入Email库：spring-boot-starter-mail
+                配置SMTP服务器
+                定义常用企业邮箱
+                发送邮件 创建线程池 创建线程任务
+
+            人脸识别 -> 查询风险等级 -> 保存签到数据
+                        ↓               ↑
+                        发送邮件     -->
+
+2.24:
+
+    1 设计用户考勤成功页面:
+
+        持久层：
+            封装几条sql语句：
+                http://140.143.132.225:8000/project-1/doc-76/
+                1-1 从tb_user表中查找用户名字和用户
+                  日期表日期、签到表地址、签到表签到人status上班状态和risk风险等级
+                    左连接 日期表中 条件为用户表日期id==日期表id
+                    左连接 签到表 用户表id==签到表用户id 和 签到表日期为当前日期
+                1-2 选取某个用户全部签到次数
+                1-3 选择某个用户某一周内签到 状态 包括status迟到 和 date日期
+                1-4 选择是否是工作日是假期
+                1-5 选择是否是周末是工作日
+
+        业务层：
+            用户考勤成功页面包括：
+                用户信息
+                签到信息
+                考勤统计：
+                    总考勤天数
+                    本周考勤统计:
+                        step1 先查询出本周考勤记录 特殊工作日和节假日
+                        step2 用DateUtil.range() 生成本周的七天日期对象
+                        step3 用本周每天日期查询当天考勤情况：
+                            s3-1 先判断当天是工作日还是休息日
+                            s3-2 未来日子考勤结果为空
+                            s3-3 当天考勤结束前 没考勤的结果为空字符串
+                            s3-4 工作日没有考勤记录就算矿工
+        web层：
+            补充：某员工周三入职 则周三前的两天不属于旷工
+            设计员工入职日期的sql语句
+
+    2 设计我的签到页面
+
+
+3.14
+
+    1 安装使用rabbitmq
+
+        使用mongodb存储消息主体
+        瞬间写入海量记录时 数据库正常CRUD受到影响  利用消息队列实现削峰填谷
+
+                     --> 公告消息
+                    --> 公告消息
+        web系统 -->  --> 公告消息
+           ↓CRUD    --> 公告消息
+         mongobd     --> 公告消息
+
+        mongobd 存储太多怎么办？        冷热数据分离 超过一年的数据当做冷数据 冷数据存储一段时间后删除
+                                    MongoDB1 放热数据 MongoDB2放冷数据
+
+        1-1: 登录系统时 登录页 登录 usercontroller 一边跳转 首页  一边message task 接收消息(消息队列)  数据集合中保存消息到MongoDB
+        1-2: 消息提醒界面
+        1-3: 修改用户资料
+
+        rabbitMQ 五种队列模式：
+
+                            简单模式    一个上缠着对应一个消费者
+                                    生产者  ->  队列  ->消费者
+                            work模式      一个生产者对应多个消费者 但是只能有一个消费者获得消息
+                                                    ->消费者
+                                    生产者  ->  队列  ->消费者
+                                                    ->消费者
+                            发布/订阅模式 一个生产者将消息首先发送到fanout交换器 交换器绑定到多个对流 然后与之对应的所有消费者都能接收到消息
+                                                              ->队列  ->消费者
+                                      生产者  ->  fanout交换器   ->队列  ->消费者
+                                                               ->队列  ->消费者
+                            路由模式 生产者将消息发送到direct交换器 交换器按照关键字Key 符合规则的将消息路由到某个队列
+                                                              -key->队列  ->消费者
+                                      生产者  ->  direct交换器   -key>队列  ->消费者
+                                                               -key->队列  ->消费者
+                            主题模式一个生产者将消息首先发送到Topic交换器 交换器按照某种规则 发送到消费者接收到消息
+                                                              -规则->队列  ->消费者
+                                      生产者  ->  direct交换器   -规则>队列  ->消费者
+                                                               -规则->队列  ->消费者
+                 支持同步与异步两种模式
+                 消息持久化 交换器和队列也可以持久化
+                 过期时间 默认存在rabbitmq上 可以设置过期时间
+                 Ack应答 消费者接收到消息后  必须返回一个Ack应答 rabbitmq认为消息接收成功
+                        如果想要删除这条消息 消费者在发送Ack应答时 附带一个 deliveryTag 标志位
+
+                 账号yuze 密码123456
+
+
+
+        mongoDB 没有数据表的概念 而是采用集合创建数据
+            看9-4 消息模块数据模型设计.mp4_20210314_191937159.jpg
+
+            Topic  <--读取消息- 消费者1    - 写入--> MongoDB
+                    <--读取消息- 消费者2    - 写入-->
+
+        设计 ORM
+            定义Message和MessageRef映射类
+            MongoDB 联合查询  message._id和MessageRef.messageID
+            db.message.aggregate([ // 数组 message联合messageRef
+             {
+            	 $set: {
+            	 "id": { $toString: "$_id" } // 对象转换字符串 引用时加$符号 "id"是临时变量 名字随便起
+            	 }
+             },
+             {
+             $
+            	lookup:{
+             from:"message_ref",
+             localField:"id", 	// message的id和messageRef的messageId连接
+             foreignField:"messageId",
+             as:"ref"		// 保存在这个引用字段
+             },
+             },
+             { $match:{"ref.receiverId": 1} },	// 相当于where语句
+             { $sort: {sendTime : -1} },
+             { $skip: 0 },      // 从0取50页
+             { $limit: 50 }
+             ])
+
+
+3.15
+
+        1 业务接口：
+            1-1: 刷新消息模块
+            1-2: 获取分页消息
+            1-3: 根据id查询消息
+            1-4: 把未读消息更新成已读
+            1-5: 删除消息
+
+        2 配置mq
+            2-1 创建rabbitmq配置类 需要用到connectionfactory对象注册给spring框架
+            2-2 创建线程任务类MessageTask
+                2-2-1 接收消息
+                2-2-2 发送消息
+                2-2-3 删除队列
+            2-3 注册后发送系统消息
+                登录后接收系统消息
+                首页定时轮询接收消息
+
+3.16:
+
+    1 设计系统消息列表页面
+
+        1-1 生成大量消息数据 从MongoDB拿？？
+
+3.20:
+
+    1 会议列表
+
+
+3.26
+
+    1 工作流BPMN
+
+        开始 -> 创建会议  ->  -不是总经理-> 部门经理审批 -同意&跨部门 --> 总经理审批
+                        ↓                   ↓同部门                    ↓
+                        -是总经理-->        发送通知                   <--
+
+        无论审批结果是什么 都要向emos-wx-api 项目发送HTTP请求 并告知审批结果
+
+
+4.8
+
+    1 创建tb_checkout数据库
+    2 创建dao层 包括插入语句和查询语句 查询语句包括查询当日的还是某个区间的
+    3 创建了前端和后端的签到功能
+
+
+
+7.30 第一次复习
+
+    关于环境搭建的步骤:
+
+        1 利用Swagger搭建 REST API:
+            1.1 通过访问Swagger页面，来代替postman
+            1.2 导入 springfox-swagger2 和 springfox-swagger-ui这两个包
+            1.3 写SwaggerConfig配置类
+
+        2 配置后端验证功能
+            2.1 利用 Validation库，需要导入spring-boot-starter-validation包
+            2.2 创建Form类
+                validation 库在做后端验证的时候，要求必须用封装类（Form类）来保存客户端提交的数据，
+                然后在封装类中，我们可以定义验证的规则， validation 会执行这些规则，帮我们验证客户端提交的数据
+                参考 TestController类的sayHello方法
+
+        3 抵御即跨站脚本（XSS）攻击
+            3.1 抵御即跨站脚本利用js攻击
+                通常情况下，我们登陆到某个网站。如果网站使用 HttpSession 保存登陆凭证，那么
+                SessionId 会以 Cookie 的形式保存在浏览器上。如果黑客在这个网页发帖的时候，填写的
+                JavaScript 代码是用来获取 Cookie 内容的，并且把 Cookie 内容通过Ajax发送给黑客自己的电
+                脑。于是只要有人在这个网站上浏览黑客发的帖子，那么视图层渲染HTML页面，就会执行注入
+                的XSS脚本，于是你的 Cookie 信息就泄露了。黑客在自己的电脑上构建出 Cookie ，就可以冒
+                充已经登陆的用户。
+                即便很多网站使用了JWT，登陆凭证（ Token令牌 ）是存储在浏览器上面的。所以用XSS脚本可
+                以轻松的从Storage中提取出 Token ，黑客依然可以轻松的冒充已经登陆的用户。
+
+            3.2 本项目利用hutool库的一个功能 导入 hutool-all 这个包
+            3.3 通过 XssHttpServletRequestWrapper类 修改
+            3.4 创建XssFilter类
+                为了让刚刚定义的包装类生效，我们还要在 com.example.emos.wx.config.xss 中创建
+                XssFilter 过滤器。过滤器拦截所有请求，然后把请求传入包装类，这样包装类就能覆盖所有请
+                求的参数方法，用户从请求中获得数据，全都经过转义
+
+            3.5 给SpringBoot主类添加 @ServletComponentScan 注解
+
+        4 Shiro和JWT技术
+
+            4.1 Shiro： 认证(核验用户的身份) 授权(给谁谁谁分配什么样的权力) 两个功能
+                Shiro可以利用 HttpSession 或者 Redis 存储用户的登陆凭证，以及角色或者身份信息。
+                然后利用过滤器（Filter），对每个Http请求过滤，
+                检查请求对应的 HttpSession 或者 Redis 中的认证与授权信息。
+                如果用户没有登陆，或者权限不够，那么Shiro会向客户端返回错误信息。
+                也就是说，我们写用户登陆模块的时候，用户登陆成功之后，要调用Shiro保存登陆凭证。然后查
+                询用户的角色和权限，让Shiro存储起来。将来不管哪个方法需要登陆访问，或者拥有特定的角色
+                跟权限才能访问，我们在方法前设置注解即可，非常简单。
+
+                Shrio 大体流程:
+                    4 把设置应用到Shrio框架
+                    3 拦截HTTP请求，验证token
+                    2 定义认证与授权的实现方法
+                    1 把token封装成认证对象
+
+            4.2 jwt: json web token.
+                jwt相比HttpSession可以单点登录，解决了多台机器下都有登陆凭证。
+                传统的 HttpSession 依靠浏览器的 Cookie 存放 SessionId。
+                如果用户的登陆凭证经过加密（ Token ）保存在客户端，客户端每次提交请求的时候，把
+                Token 上传给后端服务器节点。即便后端项目使用了负载均衡，每个后端节点接收到客户端上传
+                的Token之后，经过检测，是有效的 Token ，于是就断定用户已经成功登陆，接下来就可以提供
+                后端服务了。
+
+            4.3 导入java-jwt包
+            4.4 写JWTUtils工具类
+            4.5 OAuth2Token 用来 把token封装成AuthenticationToken对象，Shiro要求这么做的
+            4.6 OAuth2Realm类 是 AuthorizingRealm 的实现类
+            4.7 设置jwt过期时间
+                例如过期时间15天，连续登录了14天，第15天不应该销毁token，解决办法是双token，或redis缓存
+                Token失效，缓存也不存在的情况：当第15天，用户的 Token 失效以后，我们让Shiro程序到Redis查看是否存在缓存的 Token ，如
+                果这个 Token 不存在于Redis里面，就说明用户的操作间隔了15天，需要重新登录。
+                Token失效，但是缓存还存在的情况：如果Redis中存在缓存的 Token ，说明当前 Token 失效后，
+                间隔时间还没有超过15天，不应该让用户重新登录。
+                所以要生成新的 Token 返回给客户端，并且把这个 Token 缓存到Redis里面，这种操作成为刷新 Token 过期时间。
+
+                如何在响应中添加令牌？
+
+                    1 客户端拦截OAuth2Filter
+                        定义 OAuth2Filter 类拦截所有的HTTP请求，
+                        一方面它会把请求中的 Token 字符串提取出来，封装成对象交给Shiro框架；
+                        另一方面，它会检查 Token 的有效性。
+
+                    2 OAuth2Filter写入Token到ThreadLocalToken类
+                                                                        如果 Token 过期，那么会生成新的 Token ，分别存储在 ThreadLocalToken 和 Redis 中。
+                                                                        之所以要把 新令牌 保存到 ThreadLocalToken 里面，是因为要向 AOP切面类 传递这个 新令牌 。
+                                                                        虽然 OAuth2Filter 中有 doFilterInternal() 方法，我们可以得到响应并且写入 新令牌 。但是
+                                                                        这个做非常麻烦，首先我们要通过IO流读取响应中的数据，然后还要把数据解析成JSON对象，
+                                                                        最后再放入这个新令牌。如果我们定义了 AOP切面类 ，拦截所有Web方法返回的 R对象 ，然后
+                                                                        在 R对象 里面添加 新令牌 ，这多简单啊。但是 OAuth2Filter 和 AOP 切面类之间没有调用关
+                                                                        系，所以我们很难把 新令牌 传给 AOP切面类 。
+                                                                        这里我想到了 ThreadLocal ，只要是同一个线程，往 ThreadLocal 里面写入数据和读取数据是
+                                                                        完全相同的。在Web项目中，从 OAuth2Filter 到 AOP切面类 ，都是由同一个线程来执行的，中
+                                                                        途不会更换线程。所以我们可以放心的把新令牌保存都在 ThreadLocal 里面， AOP切面类 可以成
+                                                                        功的取出新令牌，然后往 R对象 里面添加新令牌即可。
+
+                    3 OAuth2Filter写入Token到redis
+                    4 OAuth2Filter 执行 controller
+                    5 Controller拦截TokenAspect
+                    6 TokenAspect判断令牌是否更新
+                    7 更新了添加令牌
+
+
+
+            4.8 创建ThreadLocalToken类
+            4.9 创建OAuth2Filter类
+            4.10 创建ShiroConfig 类 是用来把 OAuth2Filter 和 OAuth2Realm 配置到Shiro框架
+                OAuth2Filter 是用来过滤的 ??
+                OAuth2Realm 用来认证和授权的 ?? 可能认证和授权需要过滤的时候做的吧
+
+            4.11 TokenAspect类 利用AOP，把更新的令牌返回给客户端
+
+            //FIXME 可是什么时候写的第一次传给redis和ThreadLocalToken呢
+
+        5  自定义异常
+            EmosException 继承了RuntimeException接口
+
+        6 RABC权限模型
+
+
+    关于 签到模块
+
+        2021-07-31
+
+            大规模升级修复之前留下的bug
+            升级内容包括
+                可以下班打卡之后还能打开
+                可以一直到凌晨三点之前都下班打开
+                休息日也可以打卡
+            修复了 月查看和周查看签到记录的bug
+
+            剩余工作包括 补签功能
+            补签功能 补签功能涉及两种
+            口令补签和正常补签
+            正常补签 就是员工把补签申请提交了 然后更高权限的部门经理同意才行
+
+    关于 会议管理模块
+
+    关于 消息通知模块
+
+    关于 权限模块
+        目前每个user表中有一个role属性，他是一个数组 可以放一些权限数字，
+        关联这tb_role角色表 tb_role角色表有role_name 和 role_permission
+        role_name 是个比如某个部门某个职位用的，比如人事部经理，开发二组职员，
+        role_permission

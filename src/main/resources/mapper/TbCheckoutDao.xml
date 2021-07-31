@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.emos.wx.db.dao.TbCheckoutDao">
+
+    <!--  是否已经签到 根据userid选择某个区间-->
+    <select id="haveCheckOut" parameterType="HashMap" resultType="Integer">
+        select id from tb_checkout where user_id = #{userId}
+        and date = #{date}
+        and create_time between #{start} and #{end}
+        limit 1;
+    </select>
+
+    <!--  从tb_user表中查找用户名字和用户
+           日期表日期、签到表地址、签到表签到人status上班状态 和 risk风险等级
+          左连接 日期表中 条件为用户表日期id==日期表id
+          左连接 签到表 用户表id==签到表用户id 和 签到表日期为当前日期
+          u.status 是离职还是在职   ck.status是上班 迟到还是正常-->
+
+    <select id="searchTodayCheckOut" parameterType="int" resultType="HashMap">
+        SELECT
+        u.name,
+        CASE
+        WHEN ck.status=1 THEN '正常'
+        WHEN ck.status=2 THEN '早退'
+        WHEN ck.status=3 THEN '工作量不够'
+        WHEN ck.status=4 THEN '早退而且工作量不够'
+        END AS status,
+        DATE_FORMAT(ck.create_time,'%H:%i') AS checkoutTime,
+        ck.date,
+        ck.work_time as workTime,
+        ck.create_time as createTime
+        FROM tb_user AS u
+        LEFT JOIN tb_dept AS d ON u.dept_id = d.id
+        LEFT JOIN tb_checkout AS ck ON u.id = ck.user_id AND ck.date = CURRENT_DATE
+        WHERE u.id = #{userId}
+    </select>
+
+    <!--  查询签到表中所有签到天数包括 正常和迟到-->
+    <select id="searchCheckOutDays" parameterType="int" resultType="long">
+        SELECT COUNT(*) AS count
+        FROM tb_checkout
+        WHERE user_id=#{userId}
+    </select>
+
+    <!--  查询签到表中用户 本周签到情况
+          返回两个字段 一个是日期 一个是status
+          因为要放到hashmap 所以要转换成字符串-->
+    <!--  CAST(date AS CHAR) AS date 是 AS CHAR 强制类型转换  AS date 是起别名-->
+    <select id="searchWeekCheckOut" parameterType="HashMap" resultType="HashMap">
+        SELECT
+        CAST(date AS CHAR) AS date,
+        IF(status=1,'正常','早退') AS status
+        FROM tb_checkout
+        WHERE user_id=#{userId} AND date BETWEEN #{startDate} AND #{endDate}
+    </select>
+
+    <select id="getCheckOut" parameterType="HashMap" resultType="java.lang.String">
+        SELECT
+            CAST(create_time as CHAR) as createTime
+        FROM tb_checkout
+        WHERE user_id=#{userId} AND date = #{date}
+    </select>
+
+    <insert id="insert" parameterType="com.example.emos.wx.db.pojo.TbCheckout">
+        INSERT INTO tb_checkout
+        SET user_id = #{userId},
+        <if test="address!=null">
+            address = #{address},
+        </if>
+        <if test="country!=null">
+            country = #{country},
+        </if>
+        <if test="province!=null">
+            province = #{province},
+        </if>
+        <if test="city!=null">
+            city = #{city},
+        </if>
+        <if test="district!=null">
+            district = #{district},
+        </if>
+        <if test="workTime!=null">
+            work_time = #{workTime},
+        </if>
+        status = #{status},
+        <if test="risk!=null">
+            risk = #{risk},
+        </if>
+        date = #{date},
+        create_time = #{createTime}
+    </insert>
+    
+    <delete id="deleteCheckOut" parameterType="HashMap">
+        DELETE FROM
+            tb_checkout
+        where
+            user_id=#{userId} AND date = #{date}
+    </delete>
+</mapper>

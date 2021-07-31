@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.emos.wx.db.dao.TbCheckinDao">
+    <select id="haveCheckIn" parameterType="HashMap" resultType="Integer">
+        select id from tb_checkin where user_id = #{userId}
+        and date = #{date}
+        and create_time between #{start} and #{end}
+        limit 1;
+    </select>
+
+    <select id="getCheckIn" parameterType="HashMap" resultType="java.lang.String">
+        select
+        DATE_FORMAT(create_time,'%d %H:%i') AS checkinTime
+        from tb_checkin where user_id = #{userId}
+        and date = CURRENT_DATE
+        and create_time between #{start} and #{end}
+        limit 1;
+    </select>
+    <!--  从tb_user表中查找用户名字和用户
+           日期表日期、签到表地址、签到表签到人status上班状态 和 risk风险等级
+          左连接 日期表中 条件为用户表日期id==日期表id
+          左连接 签到表 用户表id==签到表用户id 和 签到表日期为当前日期
+          u.status 是离职还是在职   ck.status是上班 迟到还是正常-->
+
+    <select id="searchTodayCheckin" parameterType="int" resultType="HashMap">
+        SELECT
+        u.name,
+        u.photo,
+        d.dept_name AS deptName,
+        ck.address,
+        CASE
+        WHEN ck.status=1 THEN '正常'
+        WHEN ck.status=2 THEN '迟到'
+        END AS status,
+        CASE
+        WHEN ck.risk=1 THEN '低风险'
+        WHEN ck.risk=2 THEN '中风险'
+        WHEN ck.risk=3 THEN '高风险'
+        END AS risk,
+        DATE_FORMAT(ck.create_time,'%H:%i') AS checkinTime,
+        ck.date
+        FROM tb_user AS u
+        LEFT JOIN tb_dept AS d ON u.dept_id = d.id
+        LEFT JOIN tb_checkin AS ck ON u.id = ck.user_id AND ck.date = CURRENT_DATE
+        WHERE u.id = #{userId} AND u.status=1
+    </select>
+
+    <!--  查询签到表中所有签到天数包括 正常和迟到-->
+    <select id="searchCheckinDays" parameterType="int" resultType="long">
+        SELECT COUNT(*) AS count
+        FROM tb_checkin
+        WHERE user_id=#{userId}
+    </select>
+
+
+
+    <select id="searchMonthCheckin" parameterType="HashMap" resultType="HashMap">
+         SELECT
+            CAST(ci.date AS CHAR) as ciDate,
+            CAST(co.date AS CHAR) as coDate,
+            ci.STATUS AS checkInStatus,
+            co.STATUS AS checkOutStatus,
+            co.work_time AS workTime
+        FROM
+	        tb_checkin AS ci
+            left JOIN tb_checkout AS co ON ci.user_id = co.user_id
+            and co.date = ci.date
+            and co.date BETWEEN #{startDate} AND #{endDate}
+        WHERE
+	        ci.user_id = #{userId}
+	        and ci.date BETWEEN #{startDate} AND #{endDate}
+    </select>
+    <!--    根据日期查询上班签到表和下班签到表-->
+    <select id="searchCheckInAndOutByDate" parameterType="HashMap" resultType="HashMap">
+        SELECT
+
+            ci.status as checkInStatus,
+            co.status as checkOutStatus,
+            co.work_time as workTime
+        FROM tb_checkin as ci
+        left join tb_checkout as co on ci.user_id = co.user_id and co.date = #{date}
+
+        WHERE ci.user_id=#{userId} and ci.date = #{date}
+    </select>
+    <insert id="insert" parameterType="com.example.emos.wx.db.pojo.TbCheckin">
+        INSERT INTO tb_checkin
+        SET user_id = #{userId},
+        <if test="address!=null">
+            address = #{address},
+        </if>
+        <if test="country!=null">
+            country = #{country},
+        </if>
+        <if test="province!=null">
+            province = #{province},
+        </if>
+        <if test="city!=null">
+            city = #{city},
+        </if>
+        <if test="district!=null">
+            district = #{district},
+        </if>
+        status = #{status},
+        <if test="risk!=null">
+            risk = #{risk},
+        </if>
+        date = #{date},
+        create_time = #{createTime}
+    </insert>
+</mapper>
