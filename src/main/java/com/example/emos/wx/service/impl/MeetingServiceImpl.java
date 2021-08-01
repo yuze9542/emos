@@ -24,6 +24,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ *  会议status 1是刚创建 2是审核未通过 3是审核通过但未开始 4是正在进行中 5是结束了 6是已删除
+ */
 @Service
 public class MeetingServiceImpl implements MeetingService {
 
@@ -36,63 +39,82 @@ public class MeetingServiceImpl implements MeetingService {
     @Value("${emos.code}")
     private String code;
 
-    @Value("${workflow.url}")
-    private String workflow;
-
-    @Value("${emos.recieveNotify}")
-    private String recieveNotify;
 
     @Override
     public void insertMeeting(TbMeeting meeting) {
+        // 这里把参会人员 放入一个数组里 然后放在member字段
         int row = meetingDao.insertMeeting(meeting);
         if (row != 1) {
             throw new EmosException("会议添加失败");
         }
-        // 工作流
-//        startMeetingWorkflow(meeting.getUuid(), meeting.getCreatorId().intValue(), meeting.getDate(),meeting.getStart());
     }
 
     @Override
     public ArrayList<HashMap> searchMyMeetingListByPage(HashMap params) {
+        // 先根据我的id查出所有会议
         ArrayList<HashMap> list = meetingDao.searchMyMeetingListByPage(params); //拿到了会议列表数据
         String date = null;
         ArrayList resultList = new ArrayList();
         HashMap resultMap = null;
         JSONArray array = null;
 
+        // 这一块代码全是删除会议的和改变会议类型的
         Iterator<HashMap> it = list.iterator();
         while (it.hasNext()) {
             HashMap map = it.next();
-            DateTime time = DateUtil.parse((String) map.get("date") + " " + (String) map.get("end") + ":00");
-            DateTime now = DateUtil.parse(DateUtil.today());
-            DateTime delete_time = DateUtil.offsetDay(now, -3); // 负数是往前提
-            if (delete_time.isAfterOrEquals(time)) {
+            DateTime startTime = DateUtil.parse((String) map.get("date") + " " + (String) map.get("start") + ":00");
+            DateTime endTime = DateUtil.parse((String) map.get("date") + " " + (String) map.get("end") + ":00");
+            DateTime now = DateUtil.date();
+            DateTime delete_time = DateUtil.offsetDay(endTime, 7); // 负数是往前提
+            // 会议时间的3天之后，就逻辑删掉这个会议
+            if (now.isAfterOrEquals(delete_time)) {
                 int id = Integer.parseInt(map.get("id").toString());
-                _deleteMeetingOver(id);
-                it.remove();
-            } else if (now.isAfter(time)) {
-                int id = Integer.parseInt(map.get("id").toString());
+                _updateMeetingToDelete(id); // 改成逻辑删除吧
+                    it.remove();    // 不要它了 这也就是为什么用遍历器的原因
+            }
+            // 如果 现在的时间在会议时间之后
+            else if (now.isAfter(endTime)) {
+                int id = Integer.parseInt(map.get("id").toString()); // 会议id
                 _updateMeetingOver(id);
-                map.put("status", 4);
+                map.put("status", 5);   // 代表过期了
 //                it.remove();
             }
+            // 如果 正在开会时
+            else if (now.isAfter(startTime)&&now.isBefore(endTime)){
+                int id = Integer.parseInt(map.get("id").toString()); // 会议id
+                _updateMeetingToStarting(id);
+                map.put("status", 4);
+            }
         }
-        for (HashMap map : list) {
 
+        //
+        for (HashMap map : list) {
+            //会议日期是肯定有的
             String temp = map.get("date").toString();
-            // 之前写的date.equals(temp) 导致了空指针异常
+            // 之前写的date.equals(temp) 导致了空指针异常 因为date初始为空
             // 拿到的日期如果等于旧日期 把旧日期的小列表加上 map 就行
             // map里面放的是 很多会议的内容
             // 如果拿到的日期不等于旧日期 就说明是新日期
             // 新日期就要new一个新的jsonArray 然后把这个
 
-            if (!temp.equals(date)) {    // 当旧日期不等于新日期时 把
+            // 当旧日期不等于新日期时 把相同日期的会议放入一个临时map里
+            if (!temp.equals(date)) {
                 date = temp;
                 resultMap = new HashMap();
                 resultMap.put("date", date);
                 array = new JSONArray();
+                // FIXME 仔细看这段代码 即使先添加到map里 在改value的值 map的数字也会变
                 resultMap.put("list", array);
                 resultList.add(resultMap);
+            }
+            // 测试一个小功能 看看查看的这个人和创建人是不是同一个人
+            Integer creatorId = Integer.parseInt((String) map.get("u2Id")) ; // 创建人id
+            Integer userId = (Integer) params.get("userId");   // 查询人id
+            if (Integer.compare(creatorId,userId)==0){
+                // 相同 可编辑
+                map.put("isSamePeople",true);
+            }else {
+                map.put("isSamePeople",false);
             }
             //会议小列表 因为每天可能有不同会议 所以需要有个列表存储同一天内的不同会议
             array.put(map);
@@ -136,34 +158,36 @@ public class MeetingServiceImpl implements MeetingService {
     }
 
     @Override
+    // 部门经理才能查询啊？ TODO 不是部门经理查询不了
     public ArrayList<HashMap> searchMeetingByManagerDept(HashMap param) {
         ArrayList<HashMap> list = meetingDao.searchMeetingByManagerDept(param);
-//        String date = null;
-//        ArrayList resultList = new ArrayList();
-//        HashMap resultMap =null;
-//        JSONArray array = null;
-//
-//        for(HashMap map:list){
-//
-//            String temp = map.get("date").toString();
-//            // 之前写的date.equals(temp) 导致了空指针异常
-//            // 拿到的日期如果等于旧日期 把旧日期的小列表加上 map 就行
-//            // map里面放的是 很多会议的内容
-//            // 如果拿到的日期不等于旧日期 就说明是新日期
-//            // 新日期就要new一个新的jsonArray 然后把这个
-//
-//            if (!temp.equals(date)){    // 当旧日期不等于新日期时 把
-//                date=temp;
-//                resultMap=new HashMap();
-//                resultMap.put("date",date);
-//                array = new JSONArray();
-//                resultMap.put("list",array);
-//                resultList.add(resultMap);
-//            }
-//            //会议小列表 因为每天可能有不同会议 所以需要有个列表存储同一天内的不同会议
-//            array.put(map);
-//        }
-        return list;
+        String date = null;
+        ArrayList resultList = new ArrayList();
+        HashMap resultMap =null;
+        JSONArray array = null;
+
+        for(HashMap map:list){
+
+            String temp = map.get("date").toString();
+            // 之前写的date.equals(temp) 导致了空指针异常
+            // 拿到的日期如果等于旧日期 把旧日期的小列表加上 map 就行
+            // map里面放的是 很多会议的内容
+            // 如果拿到的日期不等于旧日期 就说明是新日期
+            // 新日期就要new一个新的jsonArray 然后把这个
+
+            if (!temp.equals(date)){    // 当旧日期不等于新日期时 把
+                date=temp;
+                resultMap=new HashMap();
+                resultMap.put("date",date);
+                array = new JSONArray();
+                resultMap.put("list",array);
+                resultList.add(resultMap);
+            }
+            //会议小列表 因为每天可能有不同会议 所以需要有个列表存储同一天内的不同会议
+            array.put(map);
+            // resultList > resultMap > array
+        }
+        return resultList;
     }
 
     @Override
@@ -182,6 +206,7 @@ public class MeetingServiceImpl implements MeetingService {
         return meetingDao.searchUserMeetingInMonth(map);
     }
 
+    // 会议结束了
     private int _updateMeetingOver(int id) {
         int row = meetingDao.updateMeetingOver(id);
         if (row != 1)
@@ -193,6 +218,19 @@ public class MeetingServiceImpl implements MeetingService {
         int row = meetingDao.deleteMeetingInfo(id);
         if (row != 1)
             throw new EmosException("删除会议失败");
+        return row;
+    }
+    private int _updateMeetingToDelete(int id) {
+        int row = meetingDao.updateMeetingToDelete(id);
+        if (row != 1)
+            throw new EmosException("逻辑删除会议失败");
+        return row;
+    }
+
+    private int _updateMeetingToStarting(int id) {
+        int row = meetingDao.updateMeetingToStarting(id);
+        if (row != 1)
+            throw new EmosException("逻辑删除会议失败");
         return row;
     }
 
@@ -235,5 +273,21 @@ public class MeetingServiceImpl implements MeetingService {
 //            }
 //        }
 //    }
+public static void main(String[] args) {
+    HashMap<Object, Object> map = new HashMap<>();
+    int a =1 ;
+    int b =2;
+    HashMap<Object, Object> map1 = new HashMap<>();
 
+    JSONArray array = new JSONArray(); ;
+    map.put(a,array);
+    map.put(b,map1);
+    System.out.println(map);
+    map1.put("1","2");
+    map1.put("2","2");
+    array.put("2");
+    array.put("2");
+    array.put("2");
+    System.out.println(map);
+}
 }

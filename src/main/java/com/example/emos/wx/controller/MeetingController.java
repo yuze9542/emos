@@ -11,6 +11,7 @@ import com.example.emos.wx.controller.form.*;
 import com.example.emos.wx.db.pojo.TbMeeting;
 import com.example.emos.wx.exception.EmosException;
 import com.example.emos.wx.service.MeetingService;
+import com.google.gson.JsonArray;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiOperation;
@@ -38,7 +39,7 @@ public class MeetingController {
     private MeetingService meetingService;
 
     @PostMapping("/searchMyMeetingListPage")
-    @ApiOperation("查询会议列表")
+    @ApiOperation("查询会议列表 参会即可查询")
     public R searchMyMeetingListPage(@Valid @RequestBody SearchMyMeetingListByPageForm form,
                                      @RequestHeader("token") String token) {
         int userId = jwtUtil.getUserId(token);
@@ -56,12 +57,20 @@ public class MeetingController {
 
     @PostMapping("/insertMeeting")
     @ApiOperation("添加会议")
-    @RequiresPermissions(value = {"ROOT", "MEETING:INSERT"}, logical = Logical.OR)
+    @RequiresPermissions(value = {"MEETING:INSERT"}, logical = Logical.OR)
     public R insertMeeting(@Valid @RequestBody InsertMeetingForm form, @RequestHeader("token") String token) {
+        // 判断时间是不是30天内创建的 如果
+        DateTime meetingDate = DateUtil.parse(form.getDate());
+        // 用tomorrow是因为 today 没有时间 只有日期
+        DateTime futureTime = DateUtil.offsetDay(DateUtil.tomorrow(), 30);
+        if (meetingDate.isAfter(futureTime)){
+            throw new EmosException("不能创建一个月之后的会议");
+        }
         if (form.getType() == 2 && (form.getPlace() == null || form.getPlace().length() == 0)) {
             // 线下会议 有问题
             throw new EmosException("线下会议地点为空");
         }
+
         DateTime d1 = DateUtil.parse(form.getDate() + " " + form.getStart() + ":00");
         DateTime d2 = DateUtil.parse(form.getDate() + " " + form.getEnd() + ":00");
         if (d2.isBeforeOrEquals(d1)) {
@@ -71,15 +80,15 @@ public class MeetingController {
             throw new EmosException("members必须是数组");
         }
         TbMeeting entity = new TbMeeting();
-        entity.setUuid(UUID.randomUUID().toString(true));
+        entity.setUuid(UUID.randomUUID().toString(true));   // 会议id
         entity.setTitle(form.getTitle());
-        entity.setCreatorId((long) jwtUtil.getUserId(token));
+        entity.setCreatorId((long) jwtUtil.getUserId(token));   // 创建者
         entity.setDate(form.getDate());
         entity.setPlace(form.getPlace());
         entity.setStart(form.getStart() + ":00");
         entity.setEnd(form.getEnd() + ":00");
         entity.setType((short) form.getType());
-        entity.setMembers(form.getMembers());
+        entity.setMembers(form.getMembers());   //参会人员
         entity.setDesc(form.getDesc());
         entity.setStatus((short) 1);
         meetingService.insertMeeting(entity);
@@ -87,7 +96,7 @@ public class MeetingController {
     }
 
     @PostMapping("/searchMeetingById")
-    @ApiOperation("根据id查询会议")
+    @ApiOperation("根据id查询会议成员")
     @RequiresPermissions(value = {"ROOT", "MEETING:SELECT"}, logical = Logical.OR)
     public R searchMeetingById(@Valid @RequestBody SearchMeetingByIdForm form) {
         HashMap map = meetingService.searchMeetingById(form.getId());
@@ -136,19 +145,37 @@ public class MeetingController {
         return R.ok().put("result", "success");
     }
 
+    /**
+     * 理论上要查询者要能有创建者的部门经理级别权限
+     * 查询着应该是部门经理
+     * @param form
+     * @param token
+     * @return
+     */
     @PostMapping("/searchMeetingByManagerDept")
-    @ApiOperation("查询未审批的会议")
-    @RequiresPermissions(value = {"ROOT", "MEETING:SELECT"}, logical = Logical.OR)
+    @ApiOperation("根据不同条件查询会议")
+    @RequiresPermissions(value = { "MEETING:CHECKIN"}, logical = Logical.OR)
     public R searchMeetingByManagerDept(@Valid @RequestBody SearchMeetingByManagerDeptForm form
             , @RequestHeader("token") String token) {
         HashMap param = new HashMap();
-        int userId = jwtUtil.getUserId(token);
+        int userId = jwtUtil.getUserId(token);  // 理论上应该只有创建人和有删除权限的人才能操作吧
         int page = form.getPage();
         int length = form.getLength();
         long start = (page - 1) * length;
         param.put("id", userId);
         param.put("start", start);
         param.put("length", length);
+        ArrayList array = new ArrayList();
+        if ("待审核".equals(form.getType())){
+            array.add(1);
+            array.add(2);
+        }else if ("已审批".equals(form.getType())){
+            array.add(3);
+            array.add(4);
+        }else {
+            throw new EmosException("审批流程异常");
+        }
+        param.put("type", array);
         ArrayList<HashMap> list = meetingService.searchMeetingByManagerDept(param);
         return R.ok().put("result", list);
     }

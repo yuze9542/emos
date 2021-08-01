@@ -32,4 +32,7 @@ build/
 ### VS Code ###
 .vscode/
 *.yml
-!/src/main/resources/application.yml
+/src/main/resources/application.yml
+src/main/java/generator/
+src/main/resources/static/
+src/main/resources/templates/

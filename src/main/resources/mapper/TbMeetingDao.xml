@@ -35,13 +35,14 @@
         m.status,
         m.desc,
         u2.photo,
+        CAST( u2.id AS CHAR ) as u2Id,
         TIMESTAMPDIFF(HOUR,CONCAT(m.date," ",m.start),CONCAT(m.date," ",m.end)) AS hour
         FROM tb_meeting m
         JOIN tb_user u1 ON JSON_CONTAINS(m.members,CAST(u1.id AS CHAR))
         JOIN tb_user u2 ON m.creator_id=u2.id
         WHERE u1.id = #{userId} AND u1.status = 1 AND u2.status = 1
-        AND m.status IN(3,4)
-        ORDER BY m.date,m.start,m.id
+        AND m.status IN(3,4,5)
+        ORDER BY m.date desc,m.start,m.id
         LIMIT #{start}, #{length}
     </select>
 
@@ -52,10 +53,12 @@
         JOIN tb_user u ON JSON_CONTAINS ( m.members, CAST( u.id AS CHAR ) )
         WHERE m.uuid=#{uuid} AND u.status = 1
     </select>
+
+<!--    部门经理可以审批 那么应该在权限模型里设置一个权限-->
     <select id="searchMeetingByManagerDept" parameterType="HashMap" resultType="HashMap">
         SELECT
-        m.`id`,
-        u2.`name`,
+        m.`id` as meetingId,
+        u2.`name` as creatorId,
         m.`desc`,
         m.members,
         m.title,
@@ -69,16 +72,18 @@
 
         FROM
         tb_user u1
-        JOIN tb_user u2 ON u1.dept_id = u2.dept_id
+        right JOIN tb_user u2 ON u1.dept_id = u2.dept_id
         JOIN tb_meeting m ON m.creator_id = u2.id
         WHERE
         u1.id = #{id}
+        AND u1.LEVEL &lt;= 2
         AND u1.STATUS = 1
         AND u2.STATUS = 1
-        AND m.`status` IN (
-        1,
-        2
-        )
+        AND m.`status` IN
+
+            <foreach collection="type" item="one" separator="," open="(" close=")">
+                #{one}
+            </foreach>
         ORDER BY m.date,m.start,m.id
         LIMIT #{start}, #{length}
     </select>
@@ -117,7 +122,7 @@
         JOIN tb_user u ON JSON_CONTAINS ( m.members, CAST( u.id AS CHAR ) )
         WHERE u.id = #{userId}
         AND u.status = 1
-        AND m.status IN(3,4)
+        AND m.status IN(3,4,5)
         AND DATE_FORMAT(m.date,'%Y/%c')=#{express}
     </select>
 
@@ -157,6 +162,16 @@
     </update>
 
     <update id="updateMeetingOver" parameterType="int">
+        UPDATE tb_meeting
+        SET status= 5
+        WHERE id = #{id}
+    </update>
+    <update id="updateMeetingToDelete" parameterType="int">
+        UPDATE tb_meeting
+        SET status= 6
+        WHERE id = #{id}
+    </update>
+    <update id="updateMeetingToStarting" parameterType="int">
         UPDATE tb_meeting
         SET status= 4
         WHERE id = #{id}

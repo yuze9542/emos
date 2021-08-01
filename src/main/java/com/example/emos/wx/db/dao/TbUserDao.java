@@ -18,6 +18,7 @@ public interface TbUserDao {
     //   是否有超级管理员
     boolean haveRootUser();
 
+    // 获取权限
     Set<String> searchUserPermissions(int userId);
 
     int deleteByPrimaryKey(Integer id);

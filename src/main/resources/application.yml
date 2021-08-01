@@ -15,8 +15,8 @@ spring:
     druid:
       driver-class-name: com.mysql.jdbc.Driver
       url: jdbc:mysql://localhost:3306/emos?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
-      username: x
-      password: x
+      username: root
+      password: root
       # 这些配置要搭配本地cpu与内存
       initial-size: 4
       max-active: 4
@@ -28,17 +28,19 @@ spring:
       test-on-return: false
   data:
     mongodb:
-      host: 1.x.x.x
-      port: x
-      database: x
-      authentication-database: x
-      username: x
-      password: x
+      uri: mongodb://yu:root@1.15.44.134:27017
+      database: imooc-news
+#      host: 1.15.44.134
+#      port: 27137
+#      database: yu
+#      authentication-database: emos
+#      username: yu
+#      password: root
   redis:
     database: 0
-    host: 1.x.x.x
+    host: 1.15.44.134
     port: 6379
-    password: x
+    password: yuze123
     jedis:
       pool:
         max-active: 1000
@@ -82,14 +84,16 @@ emos:
   email:
     system: x@qq.com
     hr: x@qq.com
-  image-folder: C:\Users\x\Desktop\imooc\emos\images
+  image-folder: C:\Users\27890\Desktop\imooc\emos\images
   code: HelloWorld
   recieveNotify: http://192.168.1.115:8080/emos-wx-api/meeting/recieveNotify
 
+
+
 wx:
-  app-id: xx
-  secret: xx
+  app-id: wx1b864d35606dbb4b
+  secret: 122a95ccc9e2ba25541a7a3b955dcb11
 
 aliyun:
-  alikey: xxx
-  alisecret: xxx
+  alikey: LTAI5tDJ2sSDuZ2vUTnZsBQc
+  alisecret: 3cKqAmpGCJvZOoooIb8ctPie9QoZxm

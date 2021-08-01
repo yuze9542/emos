@@ -50,11 +50,7 @@ import java.util.HashMap;
 public class CheckinServiceImpl implements CheckinService {
 
 
-    @Value("${emos.face.createFaceModelUrl}")
-    private String createFaceModelUrl;
 
-    @Value("${emos.face.checkinUrl}")
-    private String checkinUrl;
 
     @Value("${emos.email.hr}")
     private String hrEmail;
@@ -135,7 +131,7 @@ public class CheckinServiceImpl implements CheckinService {
         boolean isHolidayButNotWorkday = holidaysDao.searchTodayIsHolidays() != null ? true : false;
         boolean isWorkdayButNotHoliday = workdayDao.searchTodayIsWorkday() != null ? true : false;
         String type = "工作日";
-        if (DateUtil.date().dayOfWeek() == 0) {
+        if (DateUtil.date().dayOfWeek() == 1) {
             type = "休息日";
         }
         if (isHolidayButNotWorkday) {
