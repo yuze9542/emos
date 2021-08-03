@@ -8,8 +8,8 @@ import javax.validation.constraints.NotNull;
 
 @Data
 @ApiModel
-public class SearchRoleOwnPermissionForm {
-
+public class DeleteRoleForm {
     @NotNull
+    @Min(1)
     private Integer id;
 }

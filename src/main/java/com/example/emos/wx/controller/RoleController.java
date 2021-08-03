@@ -3,9 +3,7 @@ package com.example.emos.wx.controller;
 
 import cn.hutool.json.JSONUtil;
 import com.example.emos.wx.common.util.R;
-import com.example.emos.wx.controller.form.InsertRoleForm;
-import com.example.emos.wx.controller.form.SearchRoleOwnPermissionForm;
-import com.example.emos.wx.controller.form.UpdateRolePermissionsForm;
+import com.example.emos.wx.controller.form.*;
 import com.example.emos.wx.db.pojo.TbRole;
 import com.example.emos.wx.exception.EmosException;
 import com.example.emos.wx.service.RoleService;
@@ -14,12 +12,11 @@ import io.swagger.annotations.ApiOperation;
 import org.apache.shiro.authz.annotation.Logical;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -39,6 +36,22 @@ public class RoleController {
         return R.ok().put("result", list);
     }
 
+    @PostMapping("/searchRole")
+    @ApiOperation("角色查询列表")
+    @RequiresPermissions(value = {"ROOT", "ROLE:SELECT"}, logical = Logical.OR)
+    public R searchRole(@Valid @RequestBody SearchAllRoleForm form) {
+        ArrayList<HashMap> list = roleService.searchAllRole(form.getPage(),form.getLength());
+        return R.ok().put("result", list);
+    }
+
+
+    @GetMapping("/searchAllPermission")
+    @ApiOperation("查询权限列表")
+    @RequiresPermissions(value = {"ROOT", "ROLE:SELECT"}, logical = Logical.OR)
+    public R searchAllPermission(@Valid @RequestParam Integer id) {
+        ArrayList<HashMap> list = roleService.searchAllPermission(id);
+        return R.ok().put("result", list);
+    }
 
     @PostMapping("/insertRole")
     @ApiOperation("添加角色")
@@ -63,8 +76,19 @@ public class RoleController {
         }
         TbRole entity = new TbRole();
         entity.setId(form.getId());
-        entity.setPermissions(form.getPermissions());
+        entity.setPermissions(form.getPermissions()); // 先把权限拿到
         roleService.updateRolePermissions(entity);
         return R.ok().put("result", "success");
     }
+
+    @PostMapping("/deleteRole")
+    @ApiOperation("删除角色")
+    @RequiresPermissions(value = {"ROOT", "ROLE:INSERT"}, logical = Logical.OR)
+    public R deleteRole(@Valid @RequestBody DeleteRoleForm form) {
+        Integer id = form.getId();
+        roleService.deleteRoleById(id);
+        return R.ok();
+    }
+
+
 }

@@ -14,11 +14,12 @@ import org.springframework.stereotype.Component;
  * 写 OAuth2Filter 的时候，把更新后的令牌写到 ThreadLocalToken 里面的ThreadLocal。
  */
 @Component  // 放到spring里才能生效
+@Aspect
 public class TokenAspect {
     @Autowired
     private ThreadLocalToken threadLocalToken;
 
-    @Pointcut("execution(public * com.example.emos.wx.controller.*.*(..)))")
+    @Pointcut("execution(public * com.example.emos.wx.controller.*.*(..))")
     public void aspect() {
 
     }

@@ -43,6 +43,7 @@ public interface TbUserDao {
 
     ArrayList<HashMap> searchUserGroupByDept(List param);
 
+    // 根据userid查询成员们
     ArrayList<HashMap> searchMembers(List param);
 
     HashMap searchUserInfo(int userId);

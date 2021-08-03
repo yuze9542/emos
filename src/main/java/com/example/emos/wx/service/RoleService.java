@@ -11,4 +11,10 @@ public interface RoleService {
     public void insertRole(TbRole role);
 
     public void updateRolePermissions(TbRole role);
+
+    public ArrayList<HashMap> searchAllRole(Integer page, Integer length);
+
+    public ArrayList<HashMap> searchAllPermission(Integer id);
+
+    public void deleteRoleById(Integer id);
 }

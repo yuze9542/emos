@@ -138,7 +138,7 @@ public class MeetingController {
 
 
     @PostMapping("/deleteMeetingById")
-    @ApiOperation("删除会议")
+    @ApiOperation("删除会议 逻辑删除")
     @RequiresPermissions(value = {"ROOT", "MEETING:DELETE"}, logical = Logical.OR)
     public R deleteMeetingById(@Valid @RequestBody DeleteMeetingInfoForm form) {
         meetingService.deleteMeetingInfo(form.getId());

@@ -18,10 +18,10 @@
         OAuth2Realm类 继承 AuthorizingRealm类， 是shiro框架执行 认证 与 授权 要用的东西
         AuthorizingRealm 里面有认证与授权的方法
 
-    6 刷新令牌(token) ： 令牌一旦生成就保存在客户端 即使一直登录系统 也不回生成令牌
+    6 刷新令牌(token) : 令牌一旦生成就保存在客户端 即使一直登录系统 也不回生成令牌
                         令牌到期用户必须重新登陆 令牌需要自动续期
 
-                       双令牌机制和缓存令牌机制：
+                       双令牌机制和缓存令牌机制:
                        双令牌机制设置长短日期的令牌 短日期令牌时效就用长令牌的时效
                                    缓存令牌机制利用redis 缓存的令牌过期时间是客户端令牌的一倍
 
@@ -41,10 +41,10 @@
 
      创建AOP切面类 把更新的令牌返回给客户端 见TokenAspect类
 
-     精简返回给客户端的异常：
+     精简返回给客户端的异常:
         1 @ControllerAdvice 可以全局捕获SpringMVC异常
 
-        2 判断异常类型：
+        2 判断异常类型:
             2-1 后端数据验证异常（比如格式不对） 精简异常内容
             2-2 未授权异常 ==> 不具有权限
             2-3 EmosException => 精简异常内容
@@ -65,7 +65,7 @@
         3-2 查询员工记录ID ==> select 语句
     4 超级管理员的业务层代码
 
-    5 RABC 权限模型：对系统操作的各种权限不是直接授予具体的用户，
+    5 RABC 权限模型:对系统操作的各种权限不是直接授予具体的用户，
     而是在用户集合与权限集合之间建立一个角色集合。每一种角色对应一组相应的权限。
     一旦用户被分配了适当的角色后，该用户就拥有此角色的所有操作权限。
 
@@ -75,17 +75,17 @@
 
     1 注册页面web层 前端后端都有(主要前端)
     2 登录功能 http://140.143.132.225:8000/project-1/doc-44/
-    3 后端运行细节：http://140.143.132.225:8000/project-1/doc-49/
+    3 后端运行细节:http://140.143.132.225:8000/project-1/doc-49/
         XssFilter --> OAuth2Filter --> Controller --> TokenAspect
 
         XssFilter.doFilter -> OAuth2Filter.doFilterInternal -> TokenAspect.around
 
     4 研究上传到GitHub
 
-2.17：
+2.17:
 
-    1 前端任务： 创建小程序Tab导航栏
-    2 人脸签到： 前后端
+    1 前端任务: 创建小程序Tab导航栏
+    2 人脸签到: 前后端
     3 缓存系统常量数据 说白了就是从数据库中提取数据
         创建SysConfigDao 类 selectAllParm 的sql方法 提取param_key, param_value
         然后注入到systemConstants类中 在执行初始化类的init()方法
@@ -109,7 +109,7 @@
 
 2.18:
 
-    注意： userId == tb_user里面的id
+    注意: userId == tb_user里面的id
           openId = getOpenId(String code)；
           code 是前端临时得到的登陆凭证
 
@@ -117,7 +117,7 @@
         认证
             shiro会默认放行一些path，但这个不是放行的web方法
             认证对象内容不能为空
-            SimpleAuthenticationInfo 需要三个参数： 1 用户信息；  2 token   3 Realm类名字
+            SimpleAuthenticationInfo 需要三个参数: 1 用户信息；  2 token   3 Realm类名字
 
             回顾: 小程序 --ajax--> XssFilter --> OAth2Filter(放行或不放行)
                 --> OAth2Realm(授权方法)?? --> web方法
@@ -125,7 +125,7 @@
 
             认证方法在OAuth2Realm.java文件 修改doGetAuthenticationInfo() 方法
 
-        授权：
+        授权:
             和jwt没啥关系 shiro每次验证权限之前，都要执行授权方法，把用户具有的权限封装成
             权限对象，然后放行请求。
             web方法加@RequiresPermissions注解，提取权限。
@@ -133,13 +133,13 @@
 2.19
 
     1 开通腾讯位置坐标
-    2 把定位坐标转换为真实地址：
+    2 把定位坐标转换为真实地址:
 
-        2-1 前端： 签到
+        2-1 前端: 签到
 
 2.22
 
-    1 实现人脸签到：
+    1 实现人脸签到:
         TbFaceModel || TbCheckIn
         包括持久层和业务层
 
@@ -147,15 +147,15 @@
                 validation库在做后端验证的时候，要求必须用封装类（Form类）来保存客户端提交的数据，
                 然后在封装类中，我们可以定义验证的规则，validation会执行这些规则，帮我们验证客户端提交的数据。*/
 
-        业务层：
+        业务层:
             先判断签到用户是否存在人脸模型
             用签到照片和数据库人脸模型，识别签到人
 
-            查询疫情风险等级：
+            查询疫情风险等级:
                 jsoup解析HTML数据
 
             高风险地区发出告警邮件:
-                导入Email库：spring-boot-starter-mail
+                导入Email库:spring-boot-starter-mail
                 配置SMTP服务器
                 定义常用企业邮箱
                 发送邮件 创建线程池 创建线程任务
@@ -168,8 +168,8 @@
 
     1 设计用户考勤成功页面:
 
-        持久层：
-            封装几条sql语句：
+        持久层:
+            封装几条sql语句:
                 http://140.143.132.225:8000/project-1/doc-76/
                 1-1 从tb_user表中查找用户名字和用户
                   日期表日期、签到表地址、签到表签到人status上班状态和risk风险等级
@@ -180,22 +180,22 @@
                 1-4 选择是否是工作日是假期
                 1-5 选择是否是周末是工作日
 
-        业务层：
-            用户考勤成功页面包括：
+        业务层:
+            用户考勤成功页面包括:
                 用户信息
                 签到信息
-                考勤统计：
+                考勤统计:
                     总考勤天数
                     本周考勤统计:
                         step1 先查询出本周考勤记录 特殊工作日和节假日
                         step2 用DateUtil.range() 生成本周的七天日期对象
-                        step3 用本周每天日期查询当天考勤情况：
+                        step3 用本周每天日期查询当天考勤情况:
                             s3-1 先判断当天是工作日还是休息日
                             s3-2 未来日子考勤结果为空
                             s3-3 当天考勤结束前 没考勤的结果为空字符串
                             s3-4 工作日没有考勤记录就算矿工
-        web层：
-            补充：某员工周三入职 则周三前的两天不属于旷工
+        web层:
+            补充:某员工周三入职 则周三前的两天不属于旷工
             设计员工入职日期的sql语句
 
     2 设计我的签到页面
@@ -221,7 +221,7 @@
         1-2: 消息提醒界面
         1-3: 修改用户资料
 
-        rabbitMQ 五种队列模式：
+        rabbitMQ 五种队列模式:
 
                             简单模式    一个上缠着对应一个消费者
                                     生产者  ->  队列  ->消费者
@@ -284,7 +284,7 @@
 
 3.15
 
-        1 业务接口：
+        1 业务接口:
             1-1: 刷新消息模块
             1-2: 获取分页消息
             1-3: 根据id查询消息
@@ -369,7 +369,7 @@
 
         4 Shiro和JWT技术
 
-            4.1 Shiro： 认证(核验用户的身份) 授权(给谁谁谁分配什么样的权力) 两个功能
+            4.1 Shiro: 认证(核验用户的身份) 授权(给谁谁谁分配什么样的权力) 两个功能
                 Shiro可以利用 HttpSession 或者 Redis 存储用户的登陆凭证，以及角色或者身份信息。
                 然后利用过滤器（Filter），对每个Http请求过滤，
                 检查请求对应的 HttpSession 或者 Redis 中的认证与授权信息。
@@ -398,9 +398,9 @@
             4.6 OAuth2Realm类 是 AuthorizingRealm 的实现类
             4.7 设置jwt过期时间
                 例如过期时间15天，连续登录了14天，第15天不应该销毁token，解决办法是双token，或redis缓存
-                Token失效，缓存也不存在的情况：当第15天，用户的 Token 失效以后，我们让Shiro程序到Redis查看是否存在缓存的 Token ，如
+                Token失效，缓存也不存在的情况:当第15天，用户的 Token 失效以后，我们让Shiro程序到Redis查看是否存在缓存的 Token ，如
                 果这个 Token 不存在于Redis里面，就说明用户的操作间隔了15天，需要重新登录。
-                Token失效，但是缓存还存在的情况：如果Redis中存在缓存的 Token ，说明当前 Token 失效后，
+                Token失效，但是缓存还存在的情况:如果Redis中存在缓存的 Token ，说明当前 Token 失效后，
                 间隔时间还没有超过15天，不应该让用户重新登录。
                 所以要生成新的 Token 返回给客户端，并且把这个 Token 缓存到Redis里面，这种操作成为刷新 Token 过期时间。
 
@@ -478,12 +478,45 @@
         role_permission 是权限表 记录哪些权限 permission_id module_id action_id
         比如会议增加权限 或者是签到修改权限等等 也可以指定超级管理员有权限管理所有人
 
-    8.1 任务
-        完善会议功能 增删改查
-        写一个权限管理的功能
-            包括指定某个user的权限 增删改查
-            还有指定某个role的权限 增删改查
-        增加补签功能
-        研究mongodb和mq咋不能用了
+8.1 任务
+    完善会议功能 增删改查 基本完成
 
-        8月1日 检查了
+    目前有五张表
+        user 记录着 role 数组
+        role 记录着 permission权限 三个字段 id role_name role_permission
+        action 记录着 所有操作的行为 例如插入 删除 三个字段 id action_name:添加 action_code:insert
+        module 记录着 所有可操作性的模块 包括会议模块。。 三个字段 id module_name module_code
+        permission 记录着 action * module
+
+    写一个权限管理的功能
+        包括指定某个user的权限 增删改查
+
+    根据用户id查询他的所有权限 对应permission表 : 可根据role表查询
+    根据用户id查询role角色 对应role表: 查询role表
+    根据用户ID添加role角色: 列出所有role角色
+    根据用户id删除role角色
+    根据用户id更改role角色
+
+    根据role角色添加对应权限: 根据module表和action表联合(相乘) 查询有哪些组合 把组合的结果进行匹配
+    根据role角色删除对应权限: 根据返回结果查询permission 列表找出要删除的
+    根据role角色查询对应权限: 所有module表和action表的所有权限
+    根据role角色查询用户: 根据role的id逆向遍历整个user表
+    根据role角色更改权限: 根据module表和action表联合(相乘) 查询有哪些组合
+    根据role角色更改用户id(把user添加进来？)
+
+    根据permission表查询有哪些用户使用这个权限
+    根据permission表查询有那些权限
+    根据permission表新增权限
+    根据permission表修改权限
+    根据permission表删除权限
+
+
+        还有指定某个role的权限 增删改查
+    增加补签功能
+    研究mongodb和mq咋不能用了
+
+    8月1日 检查了审批流程 完善删除逻辑为逻辑删除 不是会议创建人不能编辑会议
+
+8月2日
+
+    第一步 查询有哪些role，

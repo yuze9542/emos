@@ -151,7 +151,7 @@ public class MeetingServiceImpl implements MeetingService {
         if (now.isAfterOrEquals(time.offset(DateField.MINUTE, -20))) {
             throw new EmosException("距离会议不足20分钟 不能删除会议");
         }
-        int row = meetingDao.deleteMeetingInfo(id);
+        int row = _deleteMeetingOver(id);
         if (row != 1)
             throw new EmosException("删除会议失败");
         return row;
