@@ -50,7 +50,18 @@ public interface TbUserDao {
 
     int searchDeptManagerId(int id);        // 查询部门经理id
 
+
+    HashMap selectRoleByUserId(Integer userId);
+
     //
     int searchGmId();               // 查询经理id
 
+    // 根据roleId 查找所有有这个权限的用户
+    ArrayList<HashMap> searchUserGroupByRole(int roleID);
+
+    boolean isExistRoleId(HashMap map);
+
+    int  updateInsertRoleId(HashMap map);
+
+    void updateRoleById(Integer userId, String updateRoleId);
 }

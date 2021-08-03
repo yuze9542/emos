@@ -1,12 +1,13 @@
 package com.example.emos.wx.controller;
 
+import cn.hutool.json.JSON;
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.alibaba.druid.support.json.JSONUtils;
 import com.example.emos.wx.common.util.R;
 import com.example.emos.wx.config.shiro.JwtUtil;
-import com.example.emos.wx.controller.form.LoginForm;
-import com.example.emos.wx.controller.form.RegisterForm;
-import com.example.emos.wx.controller.form.SearchMembersForm;
-import com.example.emos.wx.controller.form.SearchUserGroupByDeptForm;
+import com.example.emos.wx.controller.form.*;
 import com.example.emos.wx.exception.EmosException;
 import com.example.emos.wx.service.UserService;
 import io.swagger.annotations.Api;
@@ -19,12 +20,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import javax.validation.constraints.NotNull;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 
 @RestController
 @RequestMapping("/user")
@@ -102,4 +100,34 @@ public class UserController {
         return R.ok().put("result", list);
     }
 
+
+
+    @PostMapping("/searchUserGroupByRole")
+    @ApiOperation("根据角色表查询用户")
+    @RequiresPermissions(value = {"ROOT", "ROLE:SELECT"}, logical = Logical.OR)
+    public R searchUserGroupByRole(@Valid @RequestBody SearchUserGroupByRoleForm form) {
+        Integer id = form.getId();
+        ArrayList<HashMap> list = userService.searchUserGroupByRole(id);
+        return R.ok().put("result", list);
+    }
+
+
+    @PostMapping("/saveRoleByUserId")
+    @ApiOperation("保存用户角色")
+    @RequiresPermissions(value = {"ROOT", "ROLE:INSERT","ROLE:UPDATE"}, logical = Logical.OR)
+    public R saveRoleByUserId(@Valid @RequestBody UpdateUserRole form) {
+        Integer RoleId = form.getId();
+        String roleUserSelected = form.getRoles();
+        roleUserSelected = roleUserSelected.replace("&quot;", "\"");
+        Map<String,Boolean> parse = (Map<String, Boolean>) JSONUtils.parse(roleUserSelected);
+
+        List<Integer> changedUser = null;
+        if (JSONUtil.isJsonArray(form.getChangedUser())){
+            changedUser = JSONUtil.parseArray(form.getChangedUser()).toList(Integer.class);
+        }
+        userService.saveRoleByUserId(RoleId,parse,changedUser);
+
+
+        return R.ok();
+    }
 }

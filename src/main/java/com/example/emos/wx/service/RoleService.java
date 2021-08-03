@@ -17,4 +17,6 @@ public interface RoleService {
     public ArrayList<HashMap> searchAllPermission(Integer id);
 
     public void deleteRoleById(Integer id);
+
+
 }

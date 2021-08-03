@@ -497,12 +497,12 @@
     根据用户id删除role角色
     根据用户id更改role角色
 
-    根据role角色添加对应权限: 根据module表和action表联合(相乘) 查询有哪些组合 把组合的结果进行匹配
-    根据role角色删除对应权限: 根据返回结果查询permission 列表找出要删除的
-    根据role角色查询对应权限: 所有module表和action表的所有权限
-    根据role角色查询用户: 根据role的id逆向遍历整个user表
-    根据role角色更改权限: 根据module表和action表联合(相乘) 查询有哪些组合
-    根据role角色更改用户id(把user添加进来？)
+    2.1 根据role角色添加对应权限
+    2.2 根据role角色 删除role
+    2.3 根据role角色查询对应权限 重要！
+    2.4 根据role角色查询用户 未完成
+    2.5 根据role角色更改权限
+    2.6 根据role角色更改用户id 未实现
 
     根据permission表查询有哪些用户使用这个权限
     根据permission表查询有那些权限

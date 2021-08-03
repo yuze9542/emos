@@ -39,6 +39,10 @@ public class RoleServiceImpl implements RoleService {
             throw new EmosException("添加角色失败");
     }
 
+    /**
+     * 这个是 给role 添加某个权限
+     * @param role
+     */
     @Override
     public void updateRolePermissions(TbRole role) {
         int row = roleDao.updateRolePermissions(role);
@@ -86,6 +90,7 @@ public class RoleServiceImpl implements RoleService {
         roleDao.updateDeletePrimaryKey(id);
     }
 
+    // 重要！！！
     private ArrayList<HashMap> handleData(ArrayList<HashMap> list) {
         ArrayList permsList = new ArrayList();
         ArrayList actionList = new ArrayList();

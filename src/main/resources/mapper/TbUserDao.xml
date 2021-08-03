@@ -70,6 +70,28 @@
         </if>
         ORDER BY d.id, u.id;
     </select>
+<!--    2.4 根据role角色查询用户-->
+    <select id="searchUserGroupByRole" parameterType="int" resultType="HashMap">
+        SELECT
+            u.NAME AS userName,
+            u.id AS userId,
+            d.dept_name AS userDept,
+            IF
+            ( r.id IS NOT NULL, TRUE, FALSE ) AS selected,
+            r.role_name AS roleName,
+            d.id AS deptId,
+            d.dept_name AS deptName
+        FROM
+            tb_user u
+            JOIN tb_dept d ON u.dept_id = d.id
+            LEFT JOIN tb_role r ON JSON_CONTAINS(
+                 u.role,
+                CAST( r.id AS CHAR ))
+            AND r.id = #{id}
+        WHERE
+            u.STATUS = 1
+        order by d.id,u.level
+    </select>
 
     <!--  CAST(p.id AS CHAR) ==> 是把p.id 转换为char类型才能运行json_contains函数
         从tb_user员工信息表中寻找 员工身份和 tb_role 身份一样的
@@ -137,6 +159,24 @@
         WHERE r.id=1 AND u.status = 1
     </select>
 
+    <select id="selectRoleByUserId" parameterType="int" resultType="HashMap">
+        select
+            u.role as role,
+            u.name as name
+        from tb_user u
+        where u.id =#{userId}
+    </select>
+
+    <select id="isExistRoleId" parameterType="HashMap" resultType="boolean">
+        select
+            if (JSON_CONTAINS(u.role, CAST(#{roleId} AS CHAR)),
+            true,false)
+        from
+            tb_user u
+        where
+            u.id = #{userId}
+    </select>
+
 
     <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
         delete from tb_user
@@ -177,6 +217,26 @@
         status = #{status},
         create_time = #{createTime}
     </insert>
+    
+    <update id="updateInsertRoleId" parameterType="HashMap">
+        update
+            tb_user u
+        set u.role =
+            (select u2.v  from (
+                (   select
+                        JSON_ARRAY_APPEND(u3.role,"$", #{roleId}) as v
+                    from tb_user u3
+                    where u3.id = #{userId})
+            ) u2  )
+        where u.id = #{userId}
+    </update>
+
+    <update id="updateRoleById" parameterType="HashMap">
+        update tb_user u
+        set  role = #{updateRoleId}
+        where u.id = #{userId}
+    </update>
+
     <update id="updateByPrimaryKeySelective" parameterType="com.example.emos.wx.db.pojo.TbUser">
         update tb_user
         <set>

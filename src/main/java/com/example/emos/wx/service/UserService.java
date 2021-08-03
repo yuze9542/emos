@@ -1,11 +1,9 @@
 package com.example.emos.wx.service;
 
+import cn.hutool.json.JSONArray;
 import com.example.emos.wx.db.pojo.TbUser;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public interface UserService {
     public int registerUser(String registerCode, String code, String nickname, String photo);
@@ -27,4 +25,8 @@ public interface UserService {
 
     public ArrayList<HashMap> searchMembers(List param);
 
+    // 根据roleId查询所有有这个权限的人员
+    public ArrayList<HashMap> searchUserGroupByRole(int roleId);
+
+    public void saveRoleByUserId(Integer roleId, Map<String, Boolean> parse, List<Integer> changedUser);
 }
