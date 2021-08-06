@@ -663,7 +663,7 @@ public class CheckinServiceImpl implements CheckinService {
      */
     @Override
     public void insertReCheck(TbRecheck entity) {
-        // 根据当前补签表 判断是否签过到 以及是否存在补签表中
+        // 根据当前补签表 判断是否签过到 以及是否存在补签表中 s
         if (!this._checkCheckIsExistByDate(entity)){
             // FIXME 如果存在 其实可以删掉重新 创
             if (!this._checkCheckIsExistReCHeckByDate(entity)){
