@@ -33,7 +33,7 @@ public class MessageDao {
      */
     public String insert(MessageEntity entity) {
         Date sendTime = entity.getSendTime();
-        DateUtil.offset(sendTime, DateField.HOUR, 8); // 转换时间
+        sendTime = DateUtil.offset(sendTime, DateField.HOUR_OF_DAY, 8);
         entity.setSendTime(sendTime);
         entity = mongoTemplate.save(entity);
         return entity.get_id();

@@ -18,27 +18,32 @@ import java.util.Map;
 public class MessageTask {
 
     @Autowired
-    private ConnectionFactory connectionFactory;
+    private ConnectionFactory connectionFactory;    // mq
 
     @Autowired
     private MessageService messageService;
 
     public void send(String topic, MessageEntity entity) {
+        // 插入消息 ？ 为什么要插入到mongodb 不是说 接收者存吗
         String id = messageService.insertMessage(entity);
         try (//接收消息数据
+             // 连接 Channel
              Connection connection = connectionFactory.newConnection();
              Channel channel = connection.createChannel(); // jdbc 联想一下mysql
         ) {
             // 从队列中获取消息，不自动确认
             channel.queueDeclare(topic, true, false, false, null);
             //Topic中有多少条数据未知，所以使用死循环接收数据，直到接收不到消息，退出死循环
-            HashMap map = new HashMap();
+            HashMap map = new HashMap(); // 属性?
             map.put("messageId", id);
-            //创建AMQP协议参数对象，添加附加属性
+            //创建AMQP协议参数对象，添加附加属性 附加属性 那主消息在哪
             AMQP.BasicProperties properties = new
                     AMQP.BasicProperties().builder().headers(map).build();
             // 发送消息 entity.getMsg().getBytes() 消息正文
-            channel.basicPublish("", topic, properties, entity.getMsg().getBytes());
+            channel.basicPublish("",
+                    topic,
+                    properties,
+                    entity.getMsg().getBytes()); // 这里是主消息
             log.debug("消息发送成功");
         } catch (Exception e) {
             log.error("执行异常");
@@ -46,7 +51,7 @@ public class MessageTask {
         }
     }
 
-    @Async // 异步
+    @Async // 异步 注册方法用了
     public void sendAsync(String topic, MessageEntity entity) {
         send(topic, entity);
     }
@@ -59,16 +64,21 @@ public class MessageTask {
     public int receive(String topic) {
         int i = 0;
         try (//接收消息数据
-             Connection connection = connectionFactory.newConnection();
-             Channel channel = connection.createChannel(); // jdbc 联想一下mysql
+             Connection connection = connectionFactory.newConnection(); // 新建一个链接
+             Channel channel = connection.createChannel(); // jdbc 联想一下mysql    链接channel
         ) {
+            // 1 队列名字 &&  2 是否持久化
+            // 3 队列中的数据消费完成后是否自动删除队列 && 是否排外的
+            // 4 是否等待服务器返回
             channel.queueDeclare(topic, true, false, false, null);
             while (true) {
                 GetResponse getResponse = channel.basicGet(topic, false);//ack应答是接受者收到消息后的回复？？
                 if (getResponse != null) {
                     AMQP.BasicProperties properties = getResponse.getProps();
                     Map<String, Object> map = properties.getHeaders();
+                    // header 附加消息
                     String messageId = map.get("messageId").toString();
+                    // 消息主体
                     byte[] body = getResponse.getBody();
                     String message = new String(body);
                     log.debug("从rabbitmq接收的消息" + message);

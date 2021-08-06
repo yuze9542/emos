@@ -14,6 +14,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.apache.shiro.authz.annotation.Logical;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -27,7 +28,6 @@ import java.util.concurrent.TimeUnit;
 @RestController
 @RequestMapping("/user")
 @Api("用户模块")
-
 public class UserController {
 
     @Autowired
@@ -58,7 +58,7 @@ public class UserController {
     @ApiOperation("登录系统")
     public R login(@Valid @RequestBody LoginForm form) {
         int id = userService.login(form.getCode());
-        String token = jwtUtil.createToken(id);
+        String token = jwtUtil.createToken(id); // 每次登陆id不一样
         Set<String> permsSet = userService.searchUserPermissions(id);
 //        saveCacheToken(token,id);
         return R.ok("登陆成功").put("token", token).put("permission", permsSet);
@@ -83,6 +83,17 @@ public class UserController {
     public R searchUserGroupByDept(@Valid @RequestBody SearchUserGroupByDeptForm form) {
         ArrayList<HashMap> list = userService.searchUserGroupByDept(form.getKeyword());
         return R.ok().put("list", list);
+    }
+
+
+    @PostMapping("/searchUserAll")
+    @ApiOperation("查询员工列表 按照部门分组排序")
+    @RequiresPermissions(value = {"ROOT", "EMPLOYEE:SELECT"}, logical = Logical.OR)
+    public R searchUserAll(@Valid @RequestBody SearchUserAllForm form) {
+        Integer length = form.getLength();
+        Integer page = form.getPage();
+        ArrayList<HashMap> list = userService.searchUserAll(page,length);
+        return R.ok().put("result", list);
     }
 
 
@@ -111,7 +122,11 @@ public class UserController {
         return R.ok().put("result", list);
     }
 
-
+    /**
+     * TODO 测试任务 测试多线程
+     * @param form
+     * @return
+     */
     @PostMapping("/saveRoleByUserId")
     @ApiOperation("保存用户角色")
     @RequiresPermissions(value = {"ROOT", "ROLE:INSERT","ROLE:UPDATE"}, logical = Logical.OR)

@@ -13,4 +13,16 @@
         group by d.id
 
     </select>
+    <select id="searchMembersByDeptName" resultType="HashMap">
+        select
+            u.id,
+            u.name,
+            d.dept_name as deptName,
+            u.level as level
+
+        from tb_dept d
+        left join tb_user u on d.id = u.dept_id
+        where d.dept_name = #{name}
+        order by u.level desc
+    </select>
 </mapper>

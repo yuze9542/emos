@@ -64,4 +64,10 @@ public interface TbUserDao {
     int  updateInsertRoleId(HashMap map);
 
     void updateRoleById(Integer userId, String updateRoleId);
+
+    List<HashMap> searchUserAll(HashMap map);
+
+    List<HashMap> searchDeptBoss(int userId);
+    // 寻找补签表中 审批人包含自己的
+    List<HashMap> searchReCheckListById(int userId);
 }

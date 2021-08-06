@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 
 public interface MessageService {
+    // mongodb插入
     public String insertMessage(MessageEntity entity);
 
     public String insertRef(MessageRef entity);

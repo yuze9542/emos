@@ -9,12 +9,10 @@
     </select>
 
     <select id="getCheckIn" parameterType="HashMap" resultType="java.lang.String">
-        select
-        DATE_FORMAT(create_time,'%d %H:%i') AS checkinTime
-        from tb_checkin where user_id = #{userId}
-        and date = CURRENT_DATE
-        and create_time between #{start} and #{end}
-        limit 1;
+        SELECT
+            CAST(create_time as CHAR) as createTime
+        FROM tb_checkin
+        WHERE user_id=#{userId} AND date = #{date}
     </select>
     <!--  从tb_user表中查找用户名字和用户
            日期表日期、签到表地址、签到表签到人status上班状态 和 risk风险等级

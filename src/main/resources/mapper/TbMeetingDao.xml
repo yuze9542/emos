@@ -57,21 +57,21 @@
 <!--    部门经理可以审批 那么应该在权限模型里设置一个权限-->
     <select id="searchMeetingByManagerDept" parameterType="HashMap" resultType="HashMap">
         SELECT
-        m.`id` as meetingId,
-        u2.`name` as creatorId,
-        m.`desc`,
-        m.members,
-        m.title,
-        m.date as date_origin,
-        DATE_FORMAT( m.date, '%Y年%m月%d日' ) AS date,
-        m.type,
-        m.status,
-        u2.photo,
-        DATE_FORMAT( m.START, '%H:%i' ) AS start,
-        DATE_FORMAT( m.END, '%H:%i' ) AS end
+            m.`id` as meetingId,
+            u2.`name` as creatorId,
+            m.`desc`,
+            m.members,
+            m.title,
+            m.date as date_origin,
+            DATE_FORMAT( m.date, '%Y年%m月%d日' ) AS date,
+            m.type,
+            m.status,
+            u2.photo,
+            DATE_FORMAT( m.START, '%H:%i' ) AS start,
+            DATE_FORMAT( m.END, '%H:%i' ) AS end
 
         FROM
-        tb_user u1
+            tb_user u1
         right JOIN tb_user u2 ON u1.dept_id = u2.dept_id
         JOIN tb_meeting m ON m.creator_id = u2.id
         WHERE

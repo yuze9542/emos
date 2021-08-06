@@ -4,31 +4,31 @@ package com.example.emos.wx.controller;
 import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.StrUtil;
 import com.example.emos.wx.common.util.R;
 import com.example.emos.wx.config.shiro.JwtUtil;
 import com.example.emos.wx.controller.form.*;
 import com.example.emos.wx.db.SystemConstants;
+import com.example.emos.wx.db.pojo.TbRecheck;
 import com.example.emos.wx.exception.EmosException;
 import com.example.emos.wx.service.CheckinService;
 import com.example.emos.wx.service.UserService;
+import com.example.emos.wx.utils.TypeChange;
 import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.mongodb.core.mapping.TextScore;
+import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.validation.Valid;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
-
-
+import java.util.List;
 
 
 @RequestMapping("/checkin")
@@ -43,6 +43,9 @@ import java.util.HashMap;
  *  查看用户今天是否可以签到
  */
 public class CheckinController {
+
+
+    private final String  ADMIN_DEPARTMENT_NAME = "行政部";
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -147,7 +150,7 @@ public class CheckinController {
 
     /**
      * 第一次 创建人脸模型
-     *
+     *  FIXME 创建到MongoDB
      * @param userCheckInId
      * @param file
      * @param token
@@ -288,43 +291,78 @@ public class CheckinController {
         return R.ok().put("list", list).put("sum_1", sum_1).put("sum_2", sum_2).put("sum_3", sum_3);
     }
 
-    @PostMapping("/reInsertCheckIn")
+    @PostMapping("/replenishCheckIn")
     @ApiOperation("补勤")
-    //TODO 没有完成
-    public R reInsertCheckIn(@Valid ReCheckForm reCheckForm,
-                             @RequestParam("photo") MultipartFile file,
+    public R reInsertCheckIn(@Valid @RequestBody ReplenishCheckInForm form,
                              @RequestHeader("token") String token) {
-        int userId = jwtUtil.getUserId(token);
-        if (file == null) {
-            return R.error("没有上传文件");
-        }
-        String fileName = file.getOriginalFilename().toLowerCase(); // 得到照片名字
-        if (!fileName.endsWith(".jpg")) {
-            return R.error("要jpg格式照片");
-        } else {
-            String path = imageFolder + "/" + fileName;
-            try {
-                file.transferTo(Paths.get(path)); // 可以改名
-                HashMap param = new HashMap();
-                param.put("userId", userId);
-                param.put("file", file);
-                param.put("path", path);
-                param.put("city", reCheckForm.getCity());
-                param.put("district", reCheckForm.getDistrict());
-                param.put("address", reCheckForm.getAddress());
-                param.put("country", reCheckForm.getCountry());
-                param.put("province", reCheckForm.getProvince());
-                param.put("province", reCheckForm.getProvince());
-                param.put("userCheckInId", reCheckForm.getUserCheckInId()); // 保存的是md5
-                param.put("checkCause", reCheckForm.getRecheckInCause()); // 保存的是md5
-                checkinService.checkIn(param);
-                return R.ok("签到成功");
-            } catch (IOException e) {
-                log.error(e.getMessage(), e);
-                throw new EmosException("图片保存错误");
-            } finally {
-                FileUtil.del(path);
-            }
-        }
+
+        // 需要验证 新加功能 验证 无限级别验证
+        int userId = jwtUtil.getUserId(token);  // 后端的 userId
+        String md5UserId = form.getUserId();    // 前端的 userId
+        String md5Str = DigestUtils.md5DigestAsHex(Integer.toString(userId).getBytes());
+        if (!(md5Str).equals(md5UserId)) throw new EmosException("口令输入错误");
+
+        // 1 获取创建人的部门 以及部门负责人id和人事部同事们的id
+        ArrayList<String> departments = new ArrayList<>();
+        departments.add(ADMIN_DEPARTMENT_NAME);
+        List<Integer> approvalList = userService.searchRelatedIdsByUserId(userId, departments);
+        approvalList.add(userId); // FIXME 审批审批人 加自己 记得删除
+        String approvalIds = TypeChange.ListToString(approvalList); // 列表转字符串
+
+        DateTime  checkTableTIme = DateUtil.parse(form.getDate()+" "+form.getTime());  // form.getTime() 是签到表上应该写的的时间
+        int inOrOut = form.getInOrOut();    // 打卡上午还是下午 int4个字节  byte1个字节
+
+        TbRecheck recheck = new TbRecheck();    // 放入TbRecheck 传入service层
+        recheck.setUserId(userId);
+        recheck.setApproverId(approvalIds);
+        recheck.setAddress(form.getAddress());
+        recheck.setInorout((byte)inOrOut);
+        recheck.setStatus(11);  // 前后端统一 待确认状态为11 和 12 都是上下班的待确认 默认11 12可以是不同意
+        recheck.setReason(form.getReason()); //原因
+        recheck.setTime(checkTableTIme);    // 签到表的创建时间
+        recheck.setDate(form.getDate());
+        recheck.setCreateTime(new DateTime());
+        checkinService.insertReCheck(recheck);
+
+        return R.ok();
     }
+
+
+    @PostMapping("/UpdateReplenishCheck")
+    @ApiOperation("补勤审批")
+    public R UpdateReplenishCheck(@Valid @RequestBody UpdateReplenishCheckForm form,
+                             @RequestHeader("token") String token) {
+
+        int userId = jwtUtil.getUserId(token);
+        checkinService.updateReCheckStatus(userId,form.getReCheckId(),form.getStatus());
+
+
+        return R.ok();
+    }
+
+    @PostMapping("/searchReCheckListApproverIsMe")
+    @ApiOperation("寻找补签表中 审批人包含自己的")
+    public R searchReCheckListById(
+            @Valid @RequestBody SelectReplenishYetCheckForm form,
+            @RequestHeader("token") String token) {
+
+        int userId = jwtUtil.getUserId(token);
+        List<HashMap> list = userService.searchReCheckListById(userId);
+
+        return R.ok().put("result",list);
+    }
+
+    @PostMapping("/searchReCheckById")
+    @ApiOperation("寻找补签表")
+    public R searchReCheckById(
+            @Valid @RequestBody SearchReCheckByIdForm form,
+            @RequestHeader("token") String token) {
+
+        int userId = jwtUtil.getUserId(token);
+        Integer id = form.getId();
+        HashMap list = checkinService.searchReCheckById(id);
+
+        return R.ok().put("result",list);
+    }
+
 }

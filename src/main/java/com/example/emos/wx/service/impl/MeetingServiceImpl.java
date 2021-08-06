@@ -36,8 +36,9 @@ public class MeetingServiceImpl implements MeetingService {
     @Autowired
     private TbUserDao userDao;
 
-    @Value("${emos.code}")
-    private String code;
+
+    @Value("${emos.offsetTime}")
+    private String offsetTime;
 
 
     @Override
@@ -65,7 +66,7 @@ public class MeetingServiceImpl implements MeetingService {
             DateTime startTime = DateUtil.parse((String) map.get("date") + " " + (String) map.get("start") + ":00");
             DateTime endTime = DateUtil.parse((String) map.get("date") + " " + (String) map.get("end") + ":00");
             DateTime now = DateUtil.date();
-            DateTime delete_time = DateUtil.offsetDay(endTime, 7); // 负数是往前提
+            DateTime delete_time = DateUtil.offsetDay(endTime, Integer.parseInt(offsetTime)); // 负数是往前提
             // 会议时间的3天之后，就逻辑删掉这个会议
             if (now.isAfterOrEquals(delete_time)) {
                 int id = Integer.parseInt(map.get("id").toString());
@@ -103,7 +104,7 @@ public class MeetingServiceImpl implements MeetingService {
                 resultMap = new HashMap();
                 resultMap.put("date", date);
                 array = new JSONArray();
-                // FIXME 仔细看这段代码 即使先添加到map里 在改value的值 map的数字也会变
+                //  仔细看这段代码 即使先添加到map里 在改value的值 map的数字也会变
                 resultMap.put("list", array);
                 resultList.add(resultMap);
             }
@@ -158,7 +159,7 @@ public class MeetingServiceImpl implements MeetingService {
     }
 
     @Override
-    // 部门经理才能查询啊？ TODO 不是部门经理查询不了
+    // 部门经理才能查询啊？ 有权限就行
     public ArrayList<HashMap> searchMeetingByManagerDept(HashMap param) {
         ArrayList<HashMap> list = meetingDao.searchMeetingByManagerDept(param);
         String date = null;
@@ -170,11 +171,6 @@ public class MeetingServiceImpl implements MeetingService {
 
             String temp = map.get("date").toString();
             // 之前写的date.equals(temp) 导致了空指针异常
-            // 拿到的日期如果等于旧日期 把旧日期的小列表加上 map 就行
-            // map里面放的是 很多会议的内容
-            // 如果拿到的日期不等于旧日期 就说明是新日期
-            // 新日期就要new一个新的jsonArray 然后把这个
-
             if (!temp.equals(date)){    // 当旧日期不等于新日期时 把
                 date=temp;
                 resultMap=new HashMap();
@@ -235,59 +231,4 @@ public class MeetingServiceImpl implements MeetingService {
     }
 
 
-//    private void startMeetingWorkflow(String uuid, int creatorId,String date,String start){
-//        HashMap info = userDao.searchUserInfo(creatorId);
-//        JSONObject json = new JSONObject();
-//        json.set("url",recieveNotify);
-//        json.set("uuid",uuid);
-//        json.set("openId",info.get("openId"));
-//        json.set("code",code);
-//        json.set("date",date);
-//        json.set("start",start);
-
-//        String[] roles = info.get("roles").toString().split("，");
-//        if (!ArrayUtil.contains(roles, "总经理")) {
-//            Integer managerId = userDao.searchDeptManagerId(creatorId);
-//            json.set("managerId", managerId);   // 部门经理id
-//            Integer gmId = userDao.searchGmId();    // 总经理id
-//            json.set("gmId", gmId);
-//            boolean bool = meetingDao.searchMeetingMembersInSameDept(uuid);
-//            json.set("sameDept", bool);
-//        }
-//        String url = workflow + "/workflow/startMeetingProcess";
-//        HttpResponse resp = HttpRequest.post(url).header("Content-Type", "application/json")
-//                .body(json.toString()).execute();
-
-//        HashMap param = new HashMap();
-//        param.put("uuid", uuid);
-//        int row = meetingDao.updateMeetingInstanceId(param);
-//        if (resp.getStatus() == 200) {
-//            json = JSONUtil.parseObj(resp.body());
-//            String instanceId = json.getStr("instanceId");
-//            HashMap param = new HashMap();
-//            param.put("uuid", uuid);
-//            param.put("instanceId", instanceId);
-//            int row = meetingDao.updateMeetingInstanceId(param);
-//            if (row != 1) {
-//                throw new EmosException("保存会议工作流实例ID失败");
-//            }
-//        }
-//    }
-public static void main(String[] args) {
-    HashMap<Object, Object> map = new HashMap<>();
-    int a =1 ;
-    int b =2;
-    HashMap<Object, Object> map1 = new HashMap<>();
-
-    JSONArray array = new JSONArray(); ;
-    map.put(a,array);
-    map.put(b,map1);
-    System.out.println(map);
-    map1.put("1","2");
-    map1.put("2","2");
-    array.put("2");
-    array.put("2");
-    array.put("2");
-    System.out.println(map);
-}
 }

@@ -65,7 +65,7 @@ public class RoleServiceImpl implements RoleService {
         ArrayList resultList = new ArrayList();
         String moduleName = null;
         JSONArray array = null;
-
+        // resultList > resultMap > array
         for (HashMap map : lists){
             String tempName = map.get("moduleName").toString();
             if (!tempName.equals(moduleName)) {

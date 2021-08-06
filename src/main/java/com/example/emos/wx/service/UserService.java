@@ -29,4 +29,14 @@ public interface UserService {
     public ArrayList<HashMap> searchUserGroupByRole(int roleId);
 
     public void saveRoleByUserId(Integer roleId, Map<String, Boolean> parse, List<Integer> changedUser);
+
+    // 查询所有员工
+    public ArrayList<HashMap> searchUserAll(Integer page, Integer length);
+
+    // 查找用户领导和 根据名字查询查询到的部门同事 例如人事部
+    public List<Integer> searchRelatedIdsByUserId(int userId,List<String> departmentNames);
+
+    // 寻找补签表中 审批人包含自己的
+    public List<HashMap> searchReCheckListById(int userId);
+
 }

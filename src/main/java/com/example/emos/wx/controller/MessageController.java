@@ -8,6 +8,7 @@ import com.example.emos.wx.controller.form.UpdateUnreadMessageForm;
 import com.example.emos.wx.service.MessageService;
 import com.example.emos.wx.task.MessageTask;
 import io.swagger.annotations.ApiOperation;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,7 +32,7 @@ public class MessageController {
 
 
     @PostMapping("/searchMessageByPage")
-    @ApiOperation("获取分页消息列表")
+    @ApiOperation(value = "获取分页消息列表",notes = "message_list页面")
     public R searchMessageByPage(@Valid @RequestBody SearchMessageByPageForm form,
                                  @RequestHeader("token") String token) {
         int userId = jwtUtil.getUserId(token);
@@ -44,14 +45,14 @@ public class MessageController {
 
 
     @PostMapping("/searchMessageById")
-    @ApiOperation("根据Id查询消息")
+    @ApiOperation(value = "根据Id查询消息",notes = "message页面")
     public R searchMessageById(@Valid @RequestBody SearchMessageByIdForm form) {
         HashMap map = messageService.searchMessageById(form.getId());
         return R.ok().put("result", map);
     }
 
     @PostMapping("/updateUnreadMessage")
-    @ApiOperation("未读消息更新为已读消息")
+    @ApiOperation(value = "未读消息更新为已读消息",notes = "message页面 onload时加载")
     public R updateUnreadMessage(@Valid @RequestBody UpdateUnreadMessageForm form) {
         long l = messageService.updateUnreadMessage(form.getId());
         return R.ok().put("result", l == 1 ? true : false);
@@ -65,7 +66,7 @@ public class MessageController {
     }
 
     @GetMapping("/refreshMessage")
-    @ApiOperation("刷新用户的消息")
+    @ApiOperation(value = "刷新用户的消息",notes = "index.vue 定时刷新 60s刷新")
     public R refreshMessage(@RequestHeader("token") String token) {
         int userId = jwtUtil.getUserId(token);
         //异步接收消息

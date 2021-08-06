@@ -1,19 +1,6 @@
 package com.example.emos.wx.service.impl;
 
 import cn.hutool.core.date.*;
-import cn.hutool.core.io.unit.DataUnit;
-import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.HttpUtil;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
-import com.aliyuncs.CommonRequest;
-import com.aliyuncs.CommonResponse;
-import com.aliyuncs.DefaultAcsClient;
-import com.aliyuncs.IAcsClient;
-import com.aliyuncs.exceptions.ClientException;
-import com.aliyuncs.exceptions.ServerException;
-import com.aliyuncs.http.MethodType;
-import com.aliyuncs.profile.DefaultProfile;
 import com.example.emos.wx.common.util.FaceCompareUtils;
 import com.example.emos.wx.common.util.File2Base64;
 import com.example.emos.wx.config.shiro.JwtUtil;
@@ -22,44 +9,27 @@ import com.example.emos.wx.db.dao.*;
 import com.example.emos.wx.db.pojo.TbCheckin;
 import com.example.emos.wx.db.pojo.TbCheckout;
 import com.example.emos.wx.db.pojo.TbFaceModel;
+import com.example.emos.wx.db.pojo.TbRecheck;
 import com.example.emos.wx.exception.EmosException;
 import com.example.emos.wx.service.CheckinService;
-import com.example.emos.wx.task.EmailTask;
 import com.example.emos.wx.db.dao.TbCheckoutDao;
+import com.example.emos.wx.utils.TypeChange;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
+import net.bytebuddy.implementation.bytecode.Throw;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
+import java.util.*;
 
 @Service
 @Slf4j
 public class CheckinServiceImpl implements CheckinService {
 
 
-
-
-    @Value("${emos.email.hr}")
-    private String hrEmail;
-
-    @Value("${wx.app-id}")
-    private String appId;
-
-    @Value("${wx.secret}")
-    private String appSecret;
 
     @Autowired
     private TbFaceModelDao faceModelDao;
@@ -74,22 +44,17 @@ public class CheckinServiceImpl implements CheckinService {
     private TbCheckoutDao checkoutDao;
 
     @Autowired
+    private TbUserDao userDao;
+
+    @Autowired
     private TbHolidaysDao holidaysDao;
 
     @Autowired
     private TbWorkdayDao workdayDao;
 
     @Autowired
-    private TbCityDao tbCityDao;
+    private TbRecheckDao recheckDao;
 
-    @Autowired
-    private SysConfigDao sysConfigDao;
-
-    @Autowired
-    private TbUserDao tbUserDao;
-
-    @Autowired
-    private EmailTask emailTask;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -97,29 +62,6 @@ public class CheckinServiceImpl implements CheckinService {
     @Autowired
     private FaceCompareUtils faceCompareUtils;
 
-
-
-    /**
-     * 得到openID 通过微信获取的  openID是微信长期支持的字符串
-     *
-     * @param code
-     * @return
-     */
-    private String getOpenId(String code) {
-        String url = "https://api.weixin.qq.com/sns/jscode2session";
-        HashMap map = new HashMap();
-        map.put("appid", appId);
-        map.put("secret", appSecret);
-        map.put("js_code", code);
-        map.put("grant_type", "authorization_code");
-        String response = HttpUtil.post(url, map);  // 通过这个获得response
-        JSONObject json = JSONUtil.parseObj(response);
-        String openId = json.getStr("openid");
-        if (openId == null || openId.length() == 0) {
-            throw new RuntimeException("临时登陆凭证错误");
-        }
-        return openId;
-    }
 
 
     /**
@@ -235,15 +177,15 @@ public class CheckinServiceImpl implements CheckinService {
         int status = 1; // 正常考勤
         // 当前时间 在 上班结束时间之前为正常
         if (d1.compareTo(d2) <= 0) {
-            status = 1;
+            status = 1; // 正常
         }
         // 当前时间 在上班时间之后但在最后打卡时间d3之前 为迟到
         else if (d1.compareTo(d2) > 0 && d1.compareTo(d3) < 0) {
-            status = 2;
+            status = 2; // 迟到
         }
         // 如果当前时间在最后打卡时间d3之后 为旷工
         else if (d1.compareTo(d3) > 0 && d1.compareTo(d4) < 0) {
-            status = 3;
+            status = 3; //旷工
         }
         int userId = (Integer) param.get("userId");
         TbFaceModel faceModel = faceModelDao.selectByUserId(userId); // faceModel 改成了 验证id
@@ -253,7 +195,6 @@ public class CheckinServiceImpl implements CheckinService {
         else {
             // 正常签到流程： 检查用户传过来的验证id 是否和之前的匹配
             // 若匹配 则成功 不匹配则失败
-
 
             // 2021-7-30 新增人脸识别功能
             String fromClientPhotoBase64 = File2Base64.MultipartFile2Base64((MultipartFile) param.get("file"));
@@ -278,38 +219,6 @@ public class CheckinServiceImpl implements CheckinService {
                 int risk = 1;
                 String city = (String) param.get("city"); // 城市
                 String district = (String) param.get("district"); // 区域
-                if (!StrUtil.isBlank(city) && !StrUtil.isBlank(district)) {
-                    String code = tbCityDao.searchCode(city); // 查询城市编码
-                    try {
-                        String url = "http://m." + code + ".bendibao.com/news/yqdengji/?qu=" + district;
-                        Document document = Jsoup.connect(url).get();
-                        Elements elements = document.getElementsByClass("list-content");
-                        if (elements.size() > 0) {
-                            Element element = elements.get(0);
-                            // 疫情风险结果
-                            String result = element.select("p:last-child").text();
-                            if ("高风险".equals(result)) {
-                                risk = 3;
-
-                                HashMap<String, String> map = tbUserDao.searchNameAndDept(userId);
-                                String name = map.get("name");
-                                String deptName = map.get("dept_name");
-                                deptName = deptName != null ? deptName : "";
-                                SimpleMailMessage message = new SimpleMailMessage();
-                                message.setTo(hrEmail);
-                                message.setSubject("员工" + name + "身处高风险疫情地区警告");
-                                message.setText(deptName + "员工" + name + "，" + DateUtil.format(new Date(), "yyyy年MM月dd日") + "处于" + (String) param.get("city") + "，属于新冠疫情高风险地区，请及时与该员工联系，核实情况！");
-                                emailTask.sendAsync(message);
-                            } else if ("中风险".equals(result)) {
-                                risk = risk < 2 ? 2 : risk;
-                            }
-                        }
-
-                    } catch (Exception e) {
-                        log.error("执行异常", e);
-                        throw new EmosException("获取风险等级失败");
-                    }
-                }
 
                 // 保存签到记录
                 String address = (String) param.get("address");
@@ -341,14 +250,7 @@ public class CheckinServiceImpl implements CheckinService {
     public void checkOut(HashMap param) throws IOException {
 
         // 先看看白天上班打卡了没
-        String start = DateUtil.today() + " " + systemConstants.attendanceStartTime;
-        String end = DateUtil.today() + " " + systemConstants.attendanceEndTime;
-        HashMap pmap = new HashMap();   // 里面装的是上班日期 时间和userId
-        pmap.put("userId", (Integer) param.get("userId"));
-        pmap.put("date", DateUtil.today());
-        pmap.put("start", start);
-        pmap.put("end", end);
-        String checkIn = checkinDao.getCheckIn(pmap);
+        String checkIn = _checkCheckInCreateTimeByDate((Integer) param.get("userId"),DateUtil.today()+"");
 
         // 上班打过卡了
         if (checkIn != null && checkIn != "") {
@@ -357,6 +259,9 @@ public class CheckinServiceImpl implements CheckinService {
             HashMap isCheckOutMap = new HashMap();   // 里面装的是上班日期 时间和userId
             isCheckOutMap.put("userId", (Integer) param.get("userId"));
             isCheckOutMap.put("date", DateUtil.today());
+            HashMap pmap = new HashMap();   // 里面装的是上班日期 时间和userId
+            pmap.put("userId", (Integer) param.get("userId"));
+            pmap.put("date", DateUtil.today());
             String checkOut = checkoutDao.getCheckOut(pmap);
             if (checkOut!=null && checkOut!=""){
                 // 存在下班打卡记录要删除
@@ -412,9 +317,11 @@ public class CheckinServiceImpl implements CheckinService {
                     String city = (String) param.get("city"); // 城市
                     String district = (String) param.get("district"); // 区域
 //                    checkIn = 31 11:28
-                    Integer h1 = Integer.valueOf(checkIn.substring(3, 5));
-                    Integer m1 = Integer.valueOf(checkIn.substring(6));
-                    String checkInDay = checkIn.substring(0, 2);
+
+
+                    Integer h1 = Integer.valueOf(checkIn.substring(11,13));
+                    Integer m1 = Integer.valueOf(checkIn.substring(14,16));
+                    String checkInDay = checkIn.substring(8, 10);
 
                     // 早上的时间
                     int t1 = h1 * 60 + m1;
@@ -423,11 +330,13 @@ public class CheckinServiceImpl implements CheckinService {
                     Calendar cal = Calendar.getInstance();
 
                     String nowDay = String.valueOf(cal.get(Calendar.DAY_OF_MONTH));
-
+                    cal.get(Calendar.DAY_OF_MONTH);
+                    Integer nowDate = Integer.parseInt(nowDay);
                     int h2 = cal.get(cal.HOUR_OF_DAY);
                     int m2 = cal.get(cal.MINUTE);
                     int t2 = h2 * 60 + m2 + 1;
-                    if (!checkInDay.equals(nowDay)){
+                    Integer checkInDate = Integer.parseInt(checkInDay);
+                    if (Integer.compare(checkInDate,nowDate)!=0){
                         // 说明第二天回的
                         // t2 还要加上前一天工作量 t2 = now + 24:00 - 上班时间
                         t2 += (24 * 60 - t1);
@@ -468,14 +377,13 @@ public class CheckinServiceImpl implements CheckinService {
                 }
             }
         }
-
-
     }
 
 
     /**
+     *  保存的代码在 controller 里
      * @param userId
-     * @param path   自己的版本里path为code openId = getOpenId(String code)；
+     * @param path
      */
     @Override
     public void createFaceModel(int userId, String path, String userCheckInId) {
@@ -484,8 +392,6 @@ public class CheckinServiceImpl implements CheckinService {
         entity.setUserId(userId);
         entity.setFacePath(path);// 本来传path 现在改成了openId
         faceModelDao.insert(entity);
-
-
     }
 
     /**
@@ -557,6 +463,7 @@ public class CheckinServiceImpl implements CheckinService {
                         Integer checkInStatus = (Integer) map.get("checkInStatus");
                         Integer checkOutStatus = (Integer) map.get("checkOutStatus");
                         Integer workTime = (Integer) map.get("workTime");
+                        // 上班签到状态
                         if (Integer.compare(checkInStatus, 1) != 0){
                             status = "迟到";
                         }
@@ -750,9 +657,202 @@ public class CheckinServiceImpl implements CheckinService {
         return list;
     }
 
+    /**
+     * 补签
+     * @param
+     */
     @Override
-    public void recheckIn(HashMap param) {
+    public void insertReCheck(TbRecheck entity) {
+        // 根据当前补签表 判断是否签过到 以及是否存在补签表中
+        if (!this._checkCheckIsExistByDate(entity)){
+            // FIXME 如果存在 其实可以删掉重新 创
+            if (!this._checkCheckIsExistReCHeckByDate(entity)){
+                recheckDao.insert(entity);
+            }else {
+                throw new EmosException("以补当日签");
+            }
+        }
+        else {
+            throw new EmosException("当日已打卡 不可补签");
+        }
+    }
 
+    @Override
+    public void updateReCheckStatus(int userId, Integer reCheckId, Integer status) {
+        // 1 拿到补充表
+        TbRecheck recheck = recheckDao.selectByPrimaryKey(reCheckId);
+        // 先看看打卡了没
+        boolean b = this._checkCheckIsExistByDate(recheck);
+        if (!b){
+            int inOrOut = recheck.getInorout();
+            // 可以补签 先判断状态前端出过来的状态码 和数据库状态码不同
+            //前后端匹配  1->1 11->(12) 转到本部门(不给其他部门)  0->13 逻辑删除数据表
+            if (Integer.compare(status,1) == 0){
+                // 同意
+                if (inOrOut == 0){
+                    _updateReCheckInApprove(recheck,userId);
+                }else if (inOrOut == 1){
+                    _updateReCheckOutApprove(recheck,userId);
+                }
+            }
+            else if (Integer.compare(status,11)==0){ // 一般不用吧
+                // 待处理继续给别人 给权限更高的人
+                // 查询权限更高的人 //仅 本部门
+                List<HashMap> list = userDao.searchDeptBoss(recheck.getUserId());
+                List<Integer> approvers = _filterRelatedInfo(list);
+                String approvalIds = TypeChange.ListToString(approvers);
+                recheck.setApproverId(approvalIds);
+                recheckDao.updateByPrimaryKeySelective(recheck);
+
+            }else if (Integer.compare(status,0)==0) {
+                // 不同意
+                recheck.setStatus(12);
+                recheckDao.updateByPrimaryKeySelective(recheck);
+            }
+        }else {
+            // 说明已经补过签了 删除该表 逻辑删除 状态 13
+            recheck.setStatus(13);
+            recheckDao.updateByPrimaryKeySelective(recheck);
+            throw new EmosException("当日已打卡 不可补签");
+        }
+    }
+
+    @Override
+    public HashMap searchReCheckById(Integer id) {
+        return recheckDao.selectReCheckById(id);
+    }
+
+    /**
+     * 补上班签到
+     */
+    private void _updateReCheckInApprove(TbRecheck recheck, int userId) {
+        TbCheckin entity = new TbCheckin();
+        entity.setAddress(recheck.getAddress());
+        entity.setStatus((byte) 1);
+        entity.setUserId(recheck.getUserId());
+        entity.setCreateTime(recheck.getTime());
+        entity.setDate(recheck.getDate());
+
+        checkinDao.insert(entity);
+        //更改补签表的状态
+        _updateReCheckStatus(recheck,"["+userId+"]",1);
+    }
+
+    /**
+     * 下班签到
+     */
+    private void _updateReCheckOutApprove(TbRecheck recheck, int userId) {
+        TbCheckout entity = new TbCheckout();
+        entity.setAddress(recheck.getAddress());
+        entity.setUserId(recheck.getUserId());
+        entity.setCreateTime(recheck.getTime());
+        entity.setDate(recheck.getDate());
+        entity.setStatus((byte) 1);
+        // 多一步 把当前 上班签到表的时间取出来 顺便检查
+        String checkInTime = _checkCheckInCreateTimeByDate(recheck.getUserId(), recheck.getDate());
+        if (StringUtils.isBlank(checkInTime)) throw new EmosException("当日上班还未签到");
+        // 返回格式 dd xx:xx 仅日期 + 时+ 分
+        Integer h1 = Integer.valueOf(checkInTime.substring(11, 13));
+        Integer m1 = Integer.valueOf(checkInTime.substring(14,16));
+        String checkInDay = checkInTime.substring(8,10);
+        // 早上的时间
+        int t1 = h1 * 60 + m1;
+
+        // 下班签到的时间 2021-07-27 10:34:55
+        Date Time = recheck.getCreateTime();
+        String checkOutTime = new DateTime(Time).toString();
+        Integer h2 = Integer.valueOf(checkOutTime.substring(11, 13));
+        Integer m2 = Integer.valueOf(checkOutTime.substring(14,16));
+        String checkOutDay = checkOutTime.substring(8,10);
+        int t2 = h2 * 60 + m2;
+        if (!checkInDay.equals(checkOutDay)){
+            t2 += (24 * 60 - t1);
+        }
+        int workTime = t2 - t1;
+        entity.setWorkTime(workTime);
+        if (workTime < 8 * 60 && t1 > 9 * 60){
+            entity.setStatus((byte) 2);; // 跟下班签到表同步 迟到 且工作量不够
+        }else if (workTime>10 * 60) {
+            entity.setStatus((byte) 1); // 工作量超了 迟不迟到无所谓
+        }
+        checkoutDao.insert(entity);
+        //更改补签表的状态
+        _updateReCheckStatus(recheck,"["+userId+"]",1);
+
+    }
+
+    //更改补签表的状态
+    private void _updateReCheckStatus(TbRecheck recheck,String approveId,int status){
+        recheck.setStatus(status);
+        recheck.setApproverId("["+approveId+"]");
+        recheckDao.updateByPrimaryKeySelective(recheck);
+    }
+
+    /**
+     * 判断当前日期内是否存在checkIn / checkOut 打卡记录
+     * @param
+     * @return
+     */
+    private boolean _checkCheckIsExistByDate(TbRecheck entity){
+        HashMap pmap = new HashMap();   // 里面装的是上班日期 时间 和userId
+        pmap.put("userId", entity.getUserId());
+        pmap.put("date", entity.getDate());
+        String checkStatus = null;
+        if (entity.getInorout() == 0){  // 上午
+            checkStatus = checkinDao.getCheckIn(pmap);
+        }else if (entity.getInorout() == 1){
+            checkStatus = checkoutDao.getCheckOut(pmap);
+        }else {
+            throw new EmosException("补签订单异常！");
+        }
+        if (StringUtils.isBlank(checkStatus)){
+            return false;
+        }else {
+            return true;
+        }
+    }
+
+
+    /**
+     * 判断当前日期内是否存在reCheck表内 打卡记录
+     * @param
+     * @return
+     */
+    private boolean _checkCheckIsExistReCHeckByDate(TbRecheck entity){
+        HashMap map = new HashMap();
+        map.put("date", entity.getDate());
+        map.put("userId",entity.getUserId());
+        map.put("inOrOut",entity.getInorout());
+        String checkStatus = recheckDao.selectByDateAndUserId(map);
+        if (StringUtils.isBlank(checkStatus)){
+            return false;
+        }else {
+            return true;
+        }
+    }
+
+
+    private List<Integer> _filterRelatedInfo(List<HashMap> list){
+        ArrayList<Integer> approvers = new ArrayList<>();
+        Iterator<HashMap> iterator = list.iterator();
+        while (iterator.hasNext()){
+            HashMap next = iterator.next();
+            if (next.get("id") != null && !approvers.contains(next.get("id"))) {
+                approvers.add(((Long) next.get("id")).intValue());
+            }
+        }
+        return approvers;
+    }
+
+    // 检查上班签到表在规定日期内是否存在上班表
+    private String _checkCheckInCreateTimeByDate(int userId,String date){
+        String start = date + " " + systemConstants.attendanceStartTime;
+        String end = date + " " + systemConstants.attendanceEndTime;
+        HashMap pmap = new HashMap();   // 里面装的是上班日期 时间和userId
+        pmap.put("userId", userId);
+        pmap.put("date", date);
+        String checkInTime = checkinDao.getCheckIn(pmap);
+        return checkInTime; // 返回格式 dd xx:xx 仅日期 + 时+ 分
     }
 
 

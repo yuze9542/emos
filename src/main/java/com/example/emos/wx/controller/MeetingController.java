@@ -167,16 +167,17 @@ public class MeetingController {
         param.put("length", length);
         ArrayList array = new ArrayList();
         if ("待审核".equals(form.getType())){
-            array.add(1);
-            array.add(2);
+            array.add(1);   // 刚创建
+            array.add(2);   // 审核未通过
         }else if ("已审批".equals(form.getType())){
-            array.add(3);
-            array.add(4);
+            array.add(3);   // 未开始
+            array.add(4);   // 进行中
         }else {
             throw new EmosException("审批流程异常");
         }
         param.put("type", array);
         ArrayList<HashMap> list = meetingService.searchMeetingByManagerDept(param);
+        log.info("result_list_meeting: {}", list);
         return R.ok().put("result", list);
     }
 

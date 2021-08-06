@@ -40,7 +40,7 @@
 
     <select id="selectByUserId" resultType="com.example.emos.wx.db.pojo.TbUser">
         select
-        id, open_id,nickname,photo,name,sex,tel,role,root,dept_id,status,create_time
+        id, open_id,nickname,photo,name,sex,tel,role,root,dept_id,status,create_time,level
         from tb_user
         where id=#{UserId} and status = 1
     </select>
@@ -138,6 +138,7 @@
         WHEN 1 THEN "在职"
         WHEN 2 THEN "离职"
         END AS status,
+        u.level as level
         ( SELECT GROUP_CONCAT( role_name separator "，" ) FROM tb_role WHERE JSON_CONTAINS ( u.role, CONVERT ( id, CHAR )
         ) ) AS roles
         FROM tb_user u
@@ -159,6 +160,44 @@
         WHERE r.id=1 AND u.status = 1
     </select>
 
+    <select id="searchDeptBoss" parameterType="int" resultType="HashMap">
+        SELECT
+            u2.id ,
+            u2.`name`,
+            d.dept_name as deptName,
+            u2.level as level
+        FROM
+        tb_user u1
+        JOIN tb_dept d ON d.id = u1.dept_id
+        LEFT JOIN tb_user u2
+                ON u2.dept_id = d.id
+                and u1.`level` &lt; u2.`level`
+                and u2.`level` &gt;= 2
+        WHERE
+        u1.id = #{userId}
+        order by u2.level desc
+
+    </select>
+<!--  寻找在众多补签表中审批人包含自己的-->
+    <select id="searchReCheckListById" parameterType="int" resultType="HashMap">
+
+        select
+            r.id as id,
+            r.InOrOut as inOrOur,
+            r.reason as reason,
+            r.`status` as status,
+            cast(r.date as char) as date,
+            cast(r.create_time as char) as createTime,
+            u2.name as name,
+            u2.level as `level`,
+            u2.photo as photo
+        from tb_user u
+            LEFT JOIN tb_recheck r on JSON_CONTAINS(r.approver_id, CAST(u.id as char)) and r.status!=13
+            join tb_user u2 on r.user_id = u2.id
+        where u.id =#{userId} and u.status = 1
+            order by r.date DESC ,u2.`level` DESC ;
+    </select>
+
     <select id="selectRoleByUserId" parameterType="int" resultType="HashMap">
         select
             u.role as role,
@@ -177,11 +216,32 @@
             u.id = #{userId}
     </select>
 
+    <select id="searchUserAll" parameterType="HashMap" resultType="HashMap">
+
+        select
+            u.id,
+            u.name,
+            u.role,
+            d .dept_name as userDept,
+            u.photo
+        from
+            tb_user u
+        join
+            tb_dept d on u.dept_id = d.id
+        where
+            u.status = 1
+        order by d.id, u.id desc
+
+        limit #{page} ,  #{length}
+
+    </select>
+
 
     <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
         delete from tb_user
         where id = #{id,jdbcType=INTEGER}
     </delete>
+
     <insert id="insert" parameterType="HashMap">
         INSERT INTO tb_user
         SET
@@ -208,6 +268,9 @@
         </if>
         <if test="hiredate!=null">
             hiredate = #{hiredate},
+        </if>
+        <if test="level!=null">
+            hiredate = #{level},
         </if>
         role = #{role},
         root = #{root},
@@ -279,6 +342,9 @@
             <if test="createTime != null">
                 create_time = #{createTime,jdbcType=TIMESTAMP},
             </if>
+            <if test="status != null">
+                `level` = #{level,jdbcType=TINYINT},
+            </if>
         </set>
         where id = #{id,jdbcType=INTEGER}
     </update>
@@ -297,6 +363,7 @@
         dept_id = #{deptId,jdbcType=INTEGER},
         `status` = #{status,jdbcType=TINYINT},
         create_time = #{createTime,jdbcType=TIMESTAMP}
+        `level` = #{level,jdbcType=TINYINT},
         where id = #{id,jdbcType=INTEGER}
     </update>
 </mapper>

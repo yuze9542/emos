@@ -29,8 +29,13 @@ public class MessageRefDao {
      */
     public long searchUnreadCount(int userId) {
         Query query = new Query();  //查询
-
-        query.addCriteria(Criteria.where("readFlag").is(false).and("receiverId").is(userId));
+        // Query 是不是相当于 Example
+        // where 语句
+        query.addCriteria(
+                Criteria.where("readFlag").is(false)
+                        .and("receiverId").is(userId)
+        );
+//        mongoTemplate.find(query,MessageRef.class); 是查询语句
         long count = mongoTemplate.count(query, MessageRef.class);
         return count;
     }
@@ -44,9 +49,14 @@ public class MessageRefDao {
     public long searchLastCount(int userId) {
         Query query = new Query();
         // lastFlag 是做什么的 ？？？
-        query.addCriteria(Criteria.where("lastFlag").is(true).and("receiverId").is(userId));    // 添加查询条件
-        Update update = new Update();   // 更新语句 为什么要更新
-        update.set("lastFlag", false);
+        // 这个方法不是查询 这个是把状态变成已接收的消息 已接收 不是已读
+        query.addCriteria(
+                Criteria.where("lastFlag").is(true)
+                        .and("receiverId").is(userId)
+        );    // 添加查询条件
+        Update update = new Update();   // 更新语句 为什么要更新 因为已读了 要更新状态
+
+        update.set("lastFlag", false); // lastFlag 是 是否为新接收的消息
         UpdateResult result = mongoTemplate.updateMulti(query, update, "message_ref");
         long rows = result.getModifiedCount();
         return rows;

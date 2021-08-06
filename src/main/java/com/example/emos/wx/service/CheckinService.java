@@ -1,7 +1,8 @@
 package com.example.emos.wx.service;
 
+import com.example.emos.wx.db.pojo.TbRecheck;
+
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -33,7 +34,10 @@ public interface CheckinService {
     // 查询月考勤
     public ArrayList<HashMap> searchMonthCheckin(HashMap param);
 
-
     // 补签申请
-    public void recheckIn(HashMap param);
+    public void insertReCheck(TbRecheck recheck);
+
+    public void updateReCheckStatus(int userId, Integer reCheckId, Integer status);
+
+    public HashMap searchReCheckById(Integer id);
 }

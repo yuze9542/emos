@@ -82,5 +82,10 @@ public class TbUser implements Serializable {
      */
     private Date createTime;
 
+    /**
+     * 员工等级
+     */
+    private Integer level;
+
     private static final long serialVersionUID = 1L;
 }

@@ -13,7 +13,6 @@ import com.example.emos.wx.db.pojo.TbUser;
 import com.example.emos.wx.exception.EmosException;
 import com.example.emos.wx.service.UserService;
 import com.example.emos.wx.task.MessageTask;
-import lombok.Synchronized;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,6 +41,7 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private TbDeptDao deptDao;
+
 
     /**
      * 得到openID 通过微信获取的  openID是微信长期支持的字符串
@@ -90,8 +90,9 @@ public class UserServiceImpl implements UserService {
                 userdao.insert(param);
                 int id = userdao.searchIdByOpenId(openId);
 
+                // 绑定了 发件人 没绑定收件人啊
                 MessageEntity entity = new MessageEntity();
-                entity.setSenderId(0);
+                entity.setSenderId(14);  // 收件人?
                 entity.setUuid(IdUtil.simpleUUID());
                 entity.setSenderName("系统消息");
                 entity.setMsg("你是老大，请及时更新您的员工个人信息");
@@ -141,8 +142,8 @@ public class UserServiceImpl implements UserService {
         Integer loginId = userdao.searchIdByOpenId(openId);
         if (loginId == null)
             throw new EmosException("账户不存在");
-        //从消息列表中接收消息
-        messageTask.receiveAsync(loginId + "");
+        //FIXME 从消息列表中接收消息
+//        messageTask.receiveAsync(loginId + "");
         return loginId;
     }
 
@@ -217,6 +218,85 @@ public class UserServiceImpl implements UserService {
 
     }
 
+    @Override
+    public ArrayList<HashMap> searchUserAll(Integer page, Integer length) {
+        HashMap<String, Integer> tempMap = new HashMap<>();
+        tempMap.put("page",page);
+        tempMap.put("length",length);
+        List<HashMap> lists = userdao.searchUserAll(tempMap);
+
+        ArrayList<HashMap> resultList = new ArrayList<>();
+        HashMap resultMap = null;
+        JSONArray array = null;
+        String dept = null;
+
+        for (HashMap map: lists){
+            String temp = map.get("userDept").toString();// 根据部门分组
+
+            if (!temp.equals(dept)){
+                dept = temp;
+                resultMap = new HashMap();
+                resultMap.put("userDept", dept);
+                array = new JSONArray();
+                resultMap.put("members", array);
+                resultList.add(resultMap);
+            }
+            array.put(map);
+        }
+        return resultList;
+    }
+
+    /**
+     * 根据user Id 寻找1 本部门相关 领导 级别比他高 2人事部领导 3公司高层
+     * @param userId
+     */
+    @Override
+    public List<Integer> searchRelatedIdsByUserId(int userId, List<String> departmentNames) {
+        // 1寻找userId的相关信息
+        List<HashMap> list = userdao.searchDeptBoss(userId);
+        // 部门成员信息
+        departmentNames.forEach(one->{
+            List<HashMap> adDMap = deptDao.searchMembersByDeptName(one);
+            adDMap.forEach(o->{
+                if (!list.contains(one)) list.add(o);
+            });
+        });
+        // 这里面是一些信息 包括上司的 id 姓名 部门名称 和等级 这些人可以是我的确认签到人员
+        ArrayList<Integer> approvers = new ArrayList<>();
+        Iterator<HashMap> iterator = list.iterator();
+        while (iterator.hasNext()){
+            HashMap next = iterator.next();
+            if (next.get("id") != null && !approvers.contains(next.get("id"))) {
+                approvers.add(((Long) next.get("id")).intValue());
+            }
+        }
+        return approvers;
+    }
+
+    @Override
+    public List<HashMap> searchReCheckListById(int userId) {
+        List<HashMap> list = userdao.searchReCheckListById(userId);
+
+        ArrayList<HashMap> resultLists = new ArrayList<>();
+        HashMap resultMap = null;
+        JSONArray array = null;
+        String date = null;
+
+        for (HashMap map:list){
+            String temp = (String) map.get("date");
+            if (!temp.equals(date)){
+                date = temp;
+                resultMap= new HashMap();
+                array = new JSONArray();
+                resultLists.add(resultMap);
+                resultMap.put("date",date);
+                resultMap.put("reCheckList",array);
+            }
+            array.add(map);
+        }
+        return resultLists;
+    }
+
     private  void _updateRoleByUserId(Integer userId,Integer roleId, Boolean insertFlag) {
         // TODO 明天测试多线程
 
@@ -254,8 +334,6 @@ public class UserServiceImpl implements UserService {
         }
 
     }
-
-
 
 
 }
